@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { Color, Vector3 } from 'three'
 import { AGES, ROBE_COLORS, SKIN_COLORS, TOOL_BY_ID, type Tool } from './config'
+import { OBJECTIVES } from './objectives'
 import {
   PLANET_RADIUS,
   findStartDir,
@@ -32,6 +33,39 @@ export interface Follower {
   robe: Color
   skin: Color
   phase: number
+  lost: boolean
+}
+
+export type ChallengeKind = 'wildfire' | 'pilgrims' | 'festival' | 'boom' | 'harvest'
+
+export interface Challenge {
+  id: number
+  kind: ChallengeKind
+  title: string
+  desc: string
+  duration: number
+  timeLeft: number
+  elapsed: number
+  progress: number
+  target: number
+  reward: number
+  dir: Vector3 | null
+  base: number
+  ids: number[]
+  status: 'active' | 'won' | 'lost'
+}
+
+export interface Stats {
+  blessed: Set<number>
+  farmRain: number
+  strikes: number
+  meteors: number
+  doused: number
+  treesGrown: number
+  farSide: boolean
+  houses: number
+  temples: number
+  farBuildings: number
 }
 
 export type BuildingType = 'house' | 'farm' | 'temple'
@@ -133,6 +167,13 @@ export interface GameState {
   happiness: number
   harvests: number
   time: number
+  viewDir: Vector3
+  stats: Stats
+  objectiveIndex: number
+  challenge: Challenge | null
+  challengeTimer: number
+  challengesWon: number
+  lastChallenge: ChallengeKind | null
 }
 
 const SUN_RADIUS = 1.1
@@ -172,6 +213,24 @@ function createState(): GameState {
     happiness: 0,
     harvests: 0,
     time: 0,
+    viewDir: startDir.clone(),
+    stats: {
+      blessed: new Set(),
+      farmRain: 0,
+      strikes: 0,
+      meteors: 0,
+      doused: 0,
+      treesGrown: 0,
+      farSide: false,
+      houses: 0,
+      temples: 0,
+      farBuildings: 0,
+    },
+    objectiveIndex: 0,
+    challenge: null,
+    challengeTimer: 60,
+    challengesWon: 0,
+    lastChallenge: null,
   }
 }
 
@@ -201,6 +260,7 @@ function makeFollower(dir: Vector3): Follower {
     robe: new Color(pick(ROBE_COLORS)),
     skin: new Color(pick(SKIN_COLORS)),
     phase: Math.random() * Math.PI * 2,
+    lost: false,
   }
 }
 
@@ -387,6 +447,7 @@ export function releaseCursor() {
 export function pokeFollower(index: number) {
   const f = state.followers[index]
   if (!f || !state.started) return
+  if (f.lost) f.heat += 0.6
   f.happiness = Math.min(100, f.happiness + 10)
   f.jump = 0.6
   state.faith += 1
@@ -405,6 +466,7 @@ function spend(cost: number) {
 
 function castLightning(dir: Vector3) {
   if (!spend(TOOL_BY_ID.lightning.cost)) return
+  state.stats.strikes++
   const target = surfacePoint(dir, new Vector3())
   const sky = dir.clone().multiplyScalar(PLANET_RADIUS + 7)
   const tangent = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).cross(dir).normalize()
@@ -452,6 +514,7 @@ function castLightning(dir: Vector3) {
 
 function castMeteor(dir: Vector3) {
   if (!spend(TOOL_BY_ID.meteor.cost)) return
+  state.stats.meteors++
   const to = surfacePoint(dir, new Vector3())
   const axis = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).cross(dir).normalize()
   const from = dir
@@ -587,6 +650,22 @@ function updateFollowers(dt: number) {
   const embers: Follower[] = []
 
   for (const f of [...state.followers]) {
+    if (f.lost) {
+      f.jump = Math.max(0, f.jump - dt)
+      if (!f.sunned) f.heat = Math.max(0, f.heat - 0.5 * dt)
+      f.sunned = false
+      f.state = 'pray'
+      if (f.heat > 1.6) {
+        f.lost = false
+        f.heat = 0
+        f.happiness = 85
+        f.jump = 0.8
+        f.state = 'idle'
+        emit('faith', f.dir, 24, 0.06, 0.3)
+        say('A lost pilgrim has found faith in you!', 'good')
+      }
+      continue
+    }
     f.heat = Math.max(0, f.heat - (f.sunned ? 0 : 1.6) * dt)
     f.sunned = false
     f.jump = Math.max(0, f.jump - dt)
@@ -704,6 +783,12 @@ function applyCursor(dt: number) {
   if (tool === 'sun') {
     for (const f of state.followers) {
       if (surfaceDist(f.dir, dir) < SUN_RADIUS) {
+        if (f.lost) {
+          f.heat += 1.15 * dt
+          f.sunned = true
+          continue
+        }
+        state.stats.blessed.add(f.id)
         f.happiness = Math.min(100, f.happiness + 16 * dt)
         f.heat += 1.15 * dt
         f.sunned = true
@@ -724,6 +809,7 @@ function applyCursor(dt: number) {
           f.burning = 0
           f.heat = 0
           f.happiness = Math.min(100, f.happiness + 20)
+          state.stats.doused++
           say('Saved by the rain!', 'good')
         }
         f.heat = Math.max(0, f.heat - 4 * dt)
@@ -732,6 +818,7 @@ function applyCursor(dt: number) {
     }
     for (const t of state.trees) {
       if (surfaceDist(t.dir, dir) < RAIN_RADIUS) {
+        if (t.burning > 0) state.stats.doused++
         t.burning = 0
         t.heat = 0
         if (t.charred === 0) t.size = Math.min(1.15, t.size + 0.12 * dt)
@@ -741,9 +828,13 @@ function applyCursor(dt: number) {
       if (surfaceDist(b.dir, dir) < RAIN_RADIUS) {
         if (b.burning > 0) {
           b.burning = 0
+          state.stats.doused++
           say(`The fire at your ${b.type} is out.`, 'good')
         }
-        if (b.type === 'farm') b.moisture = Math.min(1, b.moisture + 0.45 * dt)
+        if (b.type === 'farm') {
+          b.moisture = Math.min(1, b.moisture + 0.45 * dt)
+          if (b.progress >= 1) state.stats.farmRain += dt
+        }
       }
     }
     if (state.trees.length < 170 && Math.random() < dt * 0.9) {
@@ -754,6 +845,7 @@ function applyCursor(dt: number) {
         !state.buildings.some((b) => surfaceDist(b.dir, d) < 0.4)
       ) {
         state.trees.push(makeTree(d, 0.05))
+        state.stats.treesGrown++
       }
     }
   }
@@ -877,12 +969,17 @@ export function meteorPosition(m: Meteor, out = new Vector3()) {
 }
 
 function updateStats() {
-  const pop = state.followers.length
-  const houses = state.buildings.filter((b) => b.type === 'house' && b.progress >= 1).length
-  const temples = state.buildings.filter((b) => b.type === 'temple' && b.progress >= 1).length
+  const active = state.followers.filter((f) => !f.lost)
+  const pop = active.length
+  const done = state.buildings.filter((b) => b.progress >= 1)
+  const houses = done.filter((b) => b.type === 'house').length
+  const temples = done.filter((b) => b.type === 'temple').length
   state.pop = pop
   state.capacity = 2 + houses * 3 + temples * 2
-  state.happiness = pop ? state.followers.reduce((a, f) => a + f.happiness, 0) / pop : 0
+  state.happiness = pop ? active.reduce((a, f) => a + f.happiness, 0) / pop : 0
+  state.stats.houses = houses
+  state.stats.temples = temples
+  state.stats.farBuildings = done.filter((b) => b.dir.dot(startDir) < 0).length
 }
 
 function updateEconomy(dt: number) {
@@ -890,6 +987,7 @@ function updateEconomy(dt: number) {
   const fearMult = state.fearTimer > 0 ? 1.8 : 1
   let rate = 0
   for (const f of state.followers) {
+    if (f.lost) continue
     if (f.state === 'pray' && f.burning === 0) {
       const r = (0.35 + (f.happiness / 100) * 1.1) * (f.atTemple ? 2.6 : 1) * fearMult
       rate += r
@@ -950,6 +1048,212 @@ function updateEconomy(dt: number) {
   }
 }
 
+// ---------- objectives ----------
+
+function updateObjectives() {
+  if (state.viewDir.dot(startDir) < -0.4) state.stats.farSide = true
+  let o = OBJECTIVES[state.objectiveIndex]
+  while (o && o.progress(state) >= o.target) {
+    state.faith += o.reward
+    state.objectiveIndex++
+    say(`Objective complete: ${o.title}. +${o.reward} faith`, 'good')
+    emit('faith', state.viewDir, 40, 0.5, 0.4)
+    o = OBJECTIVES[state.objectiveIndex]
+    if (!o) say('Every divine purpose fulfilled. You are a true god.', 'good')
+  }
+}
+
+// ---------- challenges ----------
+
+const CHALLENGE_KINDS: ChallengeKind[] = ['wildfire', 'pilgrims', 'festival', 'boom', 'harvest']
+const CHALLENGE_RADIUS = 4.5
+
+function findFarLandDir() {
+  const d = new Vector3()
+  for (let i = 0; i < 400; i++) {
+    d.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize()
+    if (d.dot(state.viewDir) < -0.25 && isBuildable(d)) return d.clone()
+  }
+  return null
+}
+
+function makeChallenge(
+  kind: ChallengeKind,
+  title: string,
+  desc: string,
+  duration: number,
+  target: number,
+  reward: number,
+  extra: Partial<Pick<Challenge, 'dir' | 'base' | 'ids'>> = {},
+): Challenge {
+  return {
+    id: uid(),
+    kind,
+    title,
+    desc,
+    duration,
+    timeLeft: duration,
+    elapsed: 0,
+    progress: 0,
+    target,
+    reward,
+    dir: extra.dir ?? null,
+    base: extra.base ?? 0,
+    ids: extra.ids ?? [],
+    status: 'active',
+  }
+}
+
+function createChallenge(kind: ChallengeKind): Challenge | null {
+  switch (kind) {
+    case 'wildfire': {
+      const candidates = state.trees.filter((t) => t.charred === 0 && t.burning === 0 && t.dir.dot(state.viewDir) < -0.1)
+      if (candidates.length < 3) return null
+      const seed = pick(candidates)
+      for (const t of state.trees) if (surfaceDist(t.dir, seed.dir) < 0.7) igniteTree(t)
+      return makeChallenge(
+        'wildfire',
+        'Wildfire!',
+        'A blaze erupted on the far side of the world. Spin the planet and drown it with Rain.',
+        45,
+        1,
+        50,
+        { dir: seed.dir.clone(), base: state.stats.doused },
+      )
+    }
+    case 'pilgrims': {
+      const dir = findFarLandDir()
+      if (!dir) return null
+      const ids: number[] = []
+      for (let i = 0; i < 3; i++) {
+        const d = randomLandDirNear(dir, 0.1, true, 12) ?? dir
+        const f = makeFollower(d)
+        f.lost = true
+        f.state = 'pray'
+        f.happiness = 30
+        state.followers.push(f)
+        ids.push(f.id)
+      }
+      return makeChallenge(
+        'pilgrims',
+        'Lost Pilgrims',
+        'Three wanderers seek a god on the far side of the world. Find them and bless them with Sunlight.',
+        55,
+        3,
+        45,
+        { dir, ids },
+      )
+    }
+    case 'festival':
+      if (state.pop < 3) return null
+      return makeChallenge(
+        'festival',
+        'Festival of Light',
+        'Lift your people to 75% happiness and hold it for 8 seconds.',
+        45,
+        8,
+        40,
+      )
+    case 'boom':
+      return makeChallenge('boom', 'Season of Births', 'Welcome 3 new followers into your flock.', 80, 3, 50, { base: state.pop })
+    case 'harvest':
+      if (!state.buildings.some((b) => b.type === 'farm' && b.progress >= 1)) return null
+      return makeChallenge('harvest', 'Great Harvest', 'Bring in 2 harvests. Rain and sun make crops grow fast.', 70, 2, 45, {
+        base: state.harvests,
+      })
+  }
+}
+
+function startChallenge() {
+  const options = CHALLENGE_KINDS.filter((k) => k !== state.lastChallenge).sort(() => Math.random() - 0.5)
+  for (const kind of options) {
+    const c = createChallenge(kind)
+    if (c) {
+      state.challenge = c
+      state.lastChallenge = kind
+      say(`New challenge: ${c.title}`, 'info')
+      notify(true)
+      return
+    }
+  }
+  state.challengeTimer = 20
+}
+
+function finishChallenge(c: Challenge, won: boolean) {
+  c.status = won ? 'won' : 'lost'
+  c.timeLeft = 0
+  if (won) {
+    state.faith += c.reward
+    state.challengesWon++
+    for (const f of state.followers) if (!f.lost) f.happiness = Math.min(100, f.happiness + 15)
+    if (c.dir) emit('faith', c.dir, 50, 0.4, 0.3)
+    say(`Challenge complete: ${c.title}! +${c.reward} faith`, 'good')
+  } else if (c.kind === 'wildfire') {
+    for (const f of state.followers) f.happiness = Math.max(0, f.happiness - 20)
+    say('The wildfire burned unchecked. Your people despair.', 'bad')
+  } else if (c.kind === 'pilgrims') {
+    state.followers = state.followers.filter((f) => !(f.lost && c.ids.includes(f.id)))
+    say('The lost pilgrims wandered away into the wilds.', 'bad')
+  } else {
+    say(`The ${c.title} slipped away.`, 'info')
+  }
+  notify(true)
+}
+
+function updateChallenges(dt: number) {
+  const c = state.challenge
+  if (!c) {
+    if (state.objectiveIndex < 3) return
+    state.challengeTimer -= dt
+    if (state.challengeTimer <= 0) startChallenge()
+    return
+  }
+  if (c.status !== 'active') {
+    c.timeLeft -= dt
+    if (c.timeLeft <= -4) {
+      state.challenge = null
+      state.challengeTimer = 50 + Math.random() * 35
+      notify(true)
+    }
+    return
+  }
+
+  c.timeLeft -= dt
+  c.elapsed += dt
+  let failEarly = false
+
+  switch (c.kind) {
+    case 'wildfire': {
+      const dir = c.dir!
+      const burning =
+        state.trees.some((t) => t.burning > 0 && surfaceDist(t.dir, dir) < CHALLENGE_RADIUS) ||
+        state.buildings.some((b) => b.burning > 0 && surfaceDist(b.dir, dir) < CHALLENGE_RADIUS)
+      const doused = state.stats.doused > c.base
+      c.progress = !burning && doused ? 1 : 0
+      failEarly = !burning && !doused && c.elapsed > 1
+      break
+    }
+    case 'pilgrims': {
+      const alive = state.followers.filter((f) => c.ids.includes(f.id))
+      c.progress = alive.filter((f) => !f.lost).length
+      failEarly = alive.length < c.target
+      break
+    }
+    case 'festival':
+      if (state.happiness >= 75) c.progress += dt
+      break
+    case 'boom':
+      c.progress = Math.max(0, state.pop - c.base)
+      break
+    case 'harvest':
+      c.progress = state.harvests - c.base
+      break
+  }
+
+  if (c.progress >= c.target) finishChallenge(c, true)
+  else if (c.timeLeft <= 0 || failEarly) finishChallenge(c, false)
+}
+
 export function tick(dt: number) {
   if (!state.started || state.gameOver) return
   state.time += dt
@@ -959,6 +1263,8 @@ export function tick(dt: number) {
   updateTrees(dt)
   updateEffects(dt)
   updateEconomy(dt)
+  updateObjectives()
+  updateChallenges(dt)
   notify()
 }
 
