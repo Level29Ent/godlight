@@ -22,9 +22,9 @@ import {
   Wand2,
 } from 'lucide-react'
 import { AGES, TOOLS, TOOL_BY_ID, type Tool } from '@/lib/game/config'
-import { cancelTether, setTool, useGame } from '@/lib/game/store'
+import { BUILD_COST, cancelTether, costText, setTool, useGame, type BuildingType } from '@/lib/game/store'
 import { toggleMusic, toggleSfx, unlockAudio, useAudioSettings } from '@/lib/game/audio'
-import { Axe, Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
+import { Axe, Pickaxe, Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CameraPad, ChallengeCard, ObjectivePanel } from './quests'
 
@@ -130,6 +130,7 @@ function StatsPanel({ onOpenSaves }: { onOpenSaves: () => void }) {
   const happiness = useGame((s) => Math.round(s.happiness))
   const fear = useGame((s) => s.fearTimer > 0)
   const wood = useGame((s) => Math.floor(s.wood))
+  const stone = useGame((s) => Math.floor(s.stone))
 
   return (
     <Panel className="flex flex-col items-end gap-2 px-4 py-3">
@@ -146,10 +147,15 @@ function StatsPanel({ onOpenSaves }: { onOpenSaves: () => void }) {
           <span className="text-[#f4ecd8]/50">/{capacity}</span>
           <span className="sr-only">followers</span>
         </span>
-        <span className="flex items-center gap-1.5" title="Wood (speeds up building)">
+        <span className="flex items-center gap-1.5" title="Wood (chop trees, needed to build)">
           <Axe className="size-4 text-[#d9a066]" aria-hidden="true" />
           {wood}
           <span className="sr-only">wood</span>
+        </span>
+        <span className="flex items-center gap-1.5" title="Stone (mine rocks, needed to build)">
+          <Pickaxe className="size-4 text-[#b8c0cc]" aria-hidden="true" />
+          {stone}
+          <span className="sr-only">stone</span>
         </span>
         <span className="flex items-center gap-1.5" title="Happiness">
           {fear ? <Skull className="size-4 text-[#ff7a5c]" aria-hidden="true" /> : <Smile className="size-4 text-[#9be38a]" aria-hidden="true" />}
@@ -308,7 +314,7 @@ function Toolbar() {
                 type="button"
                 onClick={() => setTool(t.id)}
                 aria-pressed={active}
-                aria-label={`${t.label}${t.cost ? `, costs ${t.cost} faith` : ''}${locked ? `, locked until ${AGES[t.unlockAge].name}` : ''}`}
+                aria-label={`${t.label}${t.cost ? `, costs ${t.cost} faith` : ''}${t.kind === 'build' ? `, needs ${costText(BUILD_COST[t.id as BuildingType])}` : ''}${locked ? `, locked until ${AGES[t.unlockAge].name}` : ''}`}
                 className={cn(
                   'group relative flex w-14 shrink-0 flex-col items-center gap-0.5 rounded-xl px-1 py-2 transition-all sm:w-16',
                   active ? 'bg-[#f5c451] text-[#1a1406] shadow-lg shadow-[#f5c451]/30' : 'text-[#f4ecd8] hover:bg-white/10',
@@ -333,6 +339,15 @@ function Toolbar() {
                     )}
                   >
                     {t.cost}
+                  </span>
+                )}
+                {t.kind === 'build' && (
+                  <span
+                    className={cn('flex gap-1 text-[9px] tabular-nums leading-none', active ? 'text-[#1a1406]/70' : 'text-[#f4ecd8]/60')}
+                    aria-hidden="true"
+                  >
+                    {BUILD_COST[t.id as BuildingType].wood > 0 && <span className={active ? '' : 'text-[#d9a066]'}>{BUILD_COST[t.id as BuildingType].wood}w</span>}
+                    {BUILD_COST[t.id as BuildingType].stone > 0 && <span className={active ? '' : 'text-[#b8c0cc]'}>{BUILD_COST[t.id as BuildingType].stone}s</span>}
                   </span>
                 )}
               </button>

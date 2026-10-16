@@ -31,6 +31,7 @@ const SHOULDER = 0.215
 const HAIR_COLORS = ['#2b1d14', '#4a2f1d', '#1c1c1f', '#7a4b26', '#c99a5b', '#5b3b2a'].map((c) => new Color(c))
 export const JOB_COLORS: Record<JobKind, Color> = {
   chop: new Color(1.6, 0.95, 0.35),
+  mine: new Color(1.1, 1.2, 1.4),
   farm: new Color(0.6, 1.8, 0.45),
   build: new Color(1.8, 1.4, 0.4),
   pray: new Color(1.9, 1.7, 0.9),

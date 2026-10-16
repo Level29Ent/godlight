@@ -14,6 +14,7 @@ import { Followers } from './followers'
 import { Invaders } from './invaders'
 import { Tether } from './tether'
 import { Trees } from './trees'
+import { Rocks } from './rocks'
 import { Buildings } from './buildings'
 import { CursorFX } from './cursor-fx'
 import { Effects } from './effects'
@@ -146,6 +147,7 @@ export function Scene() {
       <ShakeGroup>
         <Planet />
         <Trees />
+        <Rocks />
         <Buildings />
         <Followers />
         <Invaders />

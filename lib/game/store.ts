@@ -39,7 +39,7 @@ export interface Follower {
   job: Job | null
 }
 
-export type JobKind = 'chop' | 'farm' | 'build' | 'pray' | 'fight' | 'guard'
+export type JobKind = 'chop' | 'mine' | 'farm' | 'build' | 'pray' | 'fight' | 'guard'
 
 export interface Job {
   kind: JobKind
@@ -135,9 +135,26 @@ export interface Stats {
   invasionsRepelled: number
   jobsAssigned: number
   woodChopped: number
+  stoneMined: number
 }
 
 export type BuildingType = 'house' | 'farm' | 'temple' | 'well'
+
+export type Material = 'wood' | 'stone'
+
+export const BUILD_COST: Record<BuildingType, Record<Material, number>> = {
+  house: { wood: 8, stone: 3 },
+  farm: { wood: 5, stone: 0 },
+  well: { wood: 2, stone: 8 },
+  temple: { wood: 14, stone: 14 },
+}
+
+export interface Rock {
+  id: number
+  dir: Vector3
+  size: number
+  yaw: number
+}
 
 export interface Building {
   id: number
@@ -151,6 +168,8 @@ export interface Building {
   growth: number
   sunned: boolean
   builders: number
+  short: Material[]
+  warnedAt: number
 }
 
 export interface Tree {
@@ -229,6 +248,7 @@ export interface GameState {
   followers: Follower[]
   buildings: Building[]
   trees: Tree[]
+  rocks: Rock[]
   bolts: Bolt[]
   meteors: Meteor[]
   shockwaves: Shockwave[]
@@ -256,6 +276,7 @@ export interface GameState {
   challengesWon: number
   lastChallenge: ChallengeKind | null
   wood: number
+  stone: number
   ufos: Ufo[]
   aliens: Alien[]
   zaps: Zap[]
@@ -283,6 +304,7 @@ function createState(): GameState {
     followers: [],
     buildings: [],
     trees: [],
+    rocks: [],
     bolts: [],
     meteors: [],
     shockwaves: [],
@@ -324,13 +346,15 @@ function createState(): GameState {
       invasionsRepelled: 0,
       jobsAssigned: 0,
       woodChopped: 0,
+      stoneMined: 0,
     },
     objectiveIndex: 0,
     challenge: null,
     challengeTimer: 60,
     challengesWon: 0,
     lastChallenge: null,
-    wood: 0,
+    wood: 10,
+    stone: 4,
     ufos: [],
     aliens: [],
     zaps: [],
@@ -388,6 +412,32 @@ function makeBuilding(type: BuildingType, dir: Vector3, complete = false): Build
     growth: 0,
     sunned: false,
     builders: 0,
+    short: [],
+    warnedAt: -Infinity,
+  }
+}
+
+function makeRock(dir: Vector3, size: number): Rock {
+  return { id: uid(), dir: dir.clone(), size, yaw: Math.random() * Math.PI * 2 }
+}
+
+function populateRocks(s: GameState) {
+  s.rocks = []
+  for (let i = 0; i < 4; i++) {
+    const d = randomLandDirNear(startDir, 0.3, true)
+    if (d && d.distanceTo(startDir) > 0.08) s.rocks.push(makeRock(d, 0.7 + Math.random() * 0.3))
+  }
+  const golden = Math.PI * (3 - Math.sqrt(5))
+  const d = new Vector3()
+  for (let i = 0; i < 900 && s.rocks.length < 80; i++) {
+    const y = 1 - (i / 899) * 2
+    const r = Math.sqrt(1 - y * y)
+    d.set(Math.cos(golden * i + 1.7) * r, y, Math.sin(golden * i + 1.7) * r)
+    randomDirNear(d, 0.08, d)
+    if (!isLand(d) || d.distanceTo(startDir) < 0.09) continue
+    if (Math.random() < 0.7) continue
+    if (s.buildings.some((b) => b.dir.distanceTo(d) < 0.06)) continue
+    s.rocks.push(makeRock(d, 0.55 + Math.random() * 0.45))
   }
 }
 
@@ -427,6 +477,7 @@ function populateWorld(s: GameState) {
     if (Math.random() < 0.55) continue
     s.trees.push(makeTree(d, 0.5 + Math.random() * 0.5))
   }
+  populateRocks(s)
 }
 
 // ---------- subscription ----------
@@ -559,6 +610,8 @@ export interface SaveData {
   view: V3
   stats: Omit<Stats, 'blessed'> & { blessed: number[] }
   wood?: number
+  stone?: number
+  rocks?: { d: V3; sz: number; y: number }[]
   invasionTimer?: number
   followers: { id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number; j?: [JobKind, V3] }[]
   buildings: { t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
@@ -590,6 +643,8 @@ export function exportSave(): SaveData {
     view: packV3(s.viewDir),
     stats: { ...s.stats, blessed: [...s.stats.blessed] },
     wood: round(s.wood),
+    stone: round(s.stone),
+    rocks: s.rocks.map((r) => ({ d: packV3(r.dir), sz: round(r.size), y: round(r.yaw) })),
     invasionTimer: round(Math.max(s.invasionTimer, 45)),
     followers: s.followers.map((f) => ({
       id: f.id,
@@ -615,7 +670,7 @@ export function exportSave(): SaveData {
 }
 
 const BUILDING_TYPES: BuildingType[] = ['house', 'farm', 'temple', 'well']
-const JOB_KINDS: JobKind[] = ['chop', 'farm', 'build', 'pray', 'fight', 'guard']
+const JOB_KINDS: JobKind[] = ['chop', 'mine', 'farm', 'build', 'pray', 'fight', 'guard']
 
 export function importSave(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object' || (raw as SaveData).v !== 1) return false
@@ -633,7 +688,8 @@ export function importSave(raw: unknown): boolean {
   state.challengeTimer = num(data.challengeTimer, 60)
   state.birthTimer = num(data.birthTimer, 6)
   state.viewDir = unpackV3(data.view)
-  state.wood = Math.max(0, num(data.wood))
+  state.wood = Math.max(0, num(data.wood, 10))
+  state.stone = Math.max(0, num(data.stone, 4))
   state.invasionTimer = Math.max(45, num(data.invasionTimer, 150))
 
   if (data.stats && typeof data.stats === 'object') {
@@ -682,6 +738,16 @@ export function importSave(raw: unknown): boolean {
     tree.yaw = num(t.y)
     return tree
   })
+
+  if (Array.isArray(data.rocks)) {
+    state.rocks = data.rocks.slice(0, 120).map((r) => {
+      const rock = makeRock(unpackV3(r.d), Math.max(0.25, Math.min(1, num(r.sz, 0.7))))
+      rock.yaw = num(r.y)
+      return rock
+    })
+  } else {
+    populateRocks(state)
+  }
 
   state.started = true
   updateStats()
@@ -1099,15 +1165,17 @@ function placeBuilding(type: BuildingType, dir: Vector3) {
   }
   if (!spend(TOOL_BY_ID[type].cost)) return
   state.trees = state.trees.filter((t) => surfaceDist(t.dir, dir) > 0.35)
+  state.rocks = state.rocks.filter((r) => surfaceDist(r.dir, dir) > 0.35)
   state.buildings = [...state.buildings, makeBuilding(type, dir)]
   emit('faith', dir, 10, 0.15, 0.05)
-  say(`Your followers begin building a ${type}.`, 'good')
+  say(`Your followers begin building a ${type}. It needs ${costText(BUILD_COST[type])}.`, 'good')
 }
 
 // ---------- tether jobs ----------
 
 export const JOB_LABELS: Record<JobKind, string> = {
   chop: 'Chop wood',
+  mine: 'Mine stone',
   farm: 'Tend farm',
   build: 'Build',
   pray: 'Pray at temple',
@@ -1152,6 +1220,8 @@ function planJob(dir: Vector3): JobPlan | null {
     }
   }
   if (tree) return { kind: 'chop', targetId: tree.id, dir: tree.dir }
+  const rock = nearestRock(dir, 0.4)
+  if (rock) return { kind: 'mine', targetId: rock.id, dir: rock.dir }
   if (!isLand(dir)) return null
   return { kind: 'guard', targetId: null, dir: dir.clone() }
 }
@@ -1186,7 +1256,27 @@ function assignJob(f: Follower, dir: Vector3) {
 
 function jobSpot(kind: JobKind, dir: Vector3) {
   if (kind === 'guard' || kind === 'fight') return dir.clone()
-  return randomLandDirNear(dir, kind === 'chop' ? 0.035 : 0.05, false, 12) ?? dir.clone()
+  return randomLandDirNear(dir, kind === 'chop' || kind === 'mine' ? 0.035 : 0.05, false, 12) ?? dir.clone()
+}
+
+function nearestRock(dir: Vector3, range: number) {
+  let best: Rock | null = null
+  let bestD = range
+  for (const r of state.rocks) {
+    const d = surfaceDist(r.dir, dir)
+    if (d < bestD) {
+      bestD = d
+      best = r
+    }
+  }
+  return best
+}
+
+export function costText(cost: Record<Material, number>) {
+  const parts: string[] = []
+  if (cost.wood > 0) parts.push(`${cost.wood} wood`)
+  if (cost.stone > 0) parts.push(`${cost.stone} stone`)
+  return parts.join(' + ') || 'nothing'
 }
 
 function updateTetherPreview() {
@@ -1215,14 +1305,45 @@ function buildRate(b: Building) {
 }
 
 function advanceConstruction(b: Building, rate: number, dt: number) {
-  b.progress = Math.min(1, b.progress + rate * dt)
+  const want = Math.min(1 - b.progress, rate * dt)
+  if (want <= 0) return false
+  const cost = BUILD_COST[b.type]
+  const short: Material[] = []
+  let fraction = 1
+  for (const m of ['wood', 'stone'] as Material[]) {
+    if (cost[m] <= 0) continue
+    const needed = cost[m] * want
+    if (state[m] < needed) {
+      short.push(m)
+      fraction = Math.min(fraction, state[m] / needed)
+    }
+  }
+  const wasShort = b.short.length > 0
+  if (short.join() !== b.short.join()) {
+    b.short = short
+    notify(true)
+  }
+  if (short.length > 0 && !wasShort && state.time - b.warnedAt > 25) {
+    b.warnedAt = state.time
+    const where = short.map((m) => (m === 'wood' ? 'trees' : 'rocks')).join(' and ')
+    say(`The ${b.type} needs more ${short.join(' and ')}. Tether followers to ${where}.`, 'bad')
+    sfx('error')
+  }
+  const delta = want * Math.max(0, fraction)
+  if (delta <= 0) return false
+  state.wood = Math.max(0, state.wood - cost.wood * delta)
+  state.stone = Math.max(0, state.stone - cost.stone * delta)
+  b.progress = Math.min(1, b.progress + delta)
+  if (b.progress > 0.9999) b.progress = 1
   if (Math.random() < dt * 2) emit('spark', b.dir, 1, 0.1, 0.2)
   if (b.progress >= 1) {
+    b.short = []
     say(`A new ${b.type} stands complete!`, 'good')
     sfx('complete')
     emit('faith', b.dir, 24, 0.2, 0.3)
     notify(true)
   }
+  return true
 }
 
 function endJob(f: Follower, message?: string) {
@@ -1349,14 +1470,42 @@ function runJob(f: Follower, dt: number) {
       const b = state.buildings.find((x) => x.id === job.targetId)
       if (!b || b.progress >= 1) return endJob(f)
       if (b.burning > 0) return
-      f.state = 'build'
-      let rate = buildRate(b) * 1.4
-      if (state.wood > 0) {
-        rate *= 2
-        state.wood = Math.max(0, state.wood - 0.4 * dt)
+      if (advanceConstruction(b, buildRate(b) * 2, dt)) {
+        f.state = 'build'
+        if (Math.random() < dt * 1.2) sfx('build')
+      } else {
+        f.state = 'idle'
       }
-      advanceConstruction(b, rate, dt)
-      if (Math.random() < dt * 1.2) sfx('build')
+      return
+    }
+    case 'mine': {
+      let rock = state.rocks.find((r) => r.id === job.targetId)
+      if (!rock) {
+        const next = nearestRock(job.dir, 1.6)
+        if (!next) return endJob(f, 'No more stone nearby to mine.')
+        job.targetId = next.id
+        job.dir.copy(next.dir)
+        job.spot.copy(jobSpot('mine', next.dir))
+        return
+      }
+      f.state = 'build'
+      job.work += dt
+      if (job.work >= 1.4) {
+        job.work = 0
+        sfx('chop')
+        emit('dust', rock.dir, 5, 0.05, 0.3)
+        rock.size -= 0.14
+        state.stone += 1
+        state.stats.stoneMined++
+        if (rock.size < 0.25) {
+          state.rocks.splice(state.rocks.indexOf(rock), 1)
+          rock = undefined
+          state.stone += 2
+          state.stats.stoneMined += 2
+          say('The rock is quarried! +2 stone', 'good')
+          notify(true)
+        }
+      }
       return
     }
     case 'farm': {
