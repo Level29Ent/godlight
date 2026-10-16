@@ -1709,16 +1709,66 @@ const tmpAxis = new Vector3()
 const tmpVec = new Vector3()
 const detourAxis = new Vector3()
 
-const DETOURS = [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8]
+const DETOURS = [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.4, -2.4, 3.0, -3.0]
+
+const progress = new WeakMap<Follower, { at: Vector3; t: number; strikes: number }>()
+
+function unstick(f: Follower, dt: number) {
+  let p = progress.get(f)
+  if (!p) {
+    p = { at: f.dir.clone(), t: 0, strikes: 0 }
+    progress.set(f, p)
+  }
+  const wantsToMove = f.state !== 'build' && f.state !== 'pray' && surfaceDist(f.dir, f.target) > 0.15
+  if (!wantsToMove || surfaceDist(f.dir, p.at) > 0.05) {
+    p.at.copy(f.dir)
+    p.t = 0
+    p.strikes = 0
+    return
+  }
+  p.t += dt
+  if (p.t < 2.5) return
+  p.t = 0
+  p.strikes++
+  if (f.job && p.strikes >= 2) {
+    f.job = null
+    f.state = 'idle'
+    say("A follower couldn't reach their task and gave up.", 'info')
+    return
+  }
+  const detour = randomLandDirNear(f.dir, 0.25 + p.strikes * 0.15, false, 20)
+  if (detour) f.target.copy(detour)
+  if (!f.job) setWander(f, 0.3 + p.strikes * 0.15)
+}
 
 /**
  * Walk across the surface toward `target`. Walkers never step into water: when the
  * direct step would get wet they try angled detours along the coast, and stop if none work.
  * Returns true when arrived or blocked.
  */
+function nearestShore(from: Vector3) {
+  for (let ring = 1; ring <= 10; ring++) {
+    const found = randomLandDirNear(from, ring * 0.04, false, 14)
+    if (found) return found
+  }
+  return null
+}
+
+function stepStraight(w: { dir: Vector3 }, goal: Vector3, step: number) {
+  const angle = w.dir.angleTo(goal)
+  if (angle < 1e-4) return
+  tmpAxis.crossVectors(w.dir, goal).normalize()
+  w.dir.applyAxisAngle(tmpAxis, Math.min(step, angle)).normalize()
+}
+
 function moveToward(w: { dir: Vector3 }, target: Vector3, speed: number, dt: number, _avoidWater = true) {
   const angle = w.dir.angleTo(target)
   const step = (speed * dt) / PLANET_RADIUS
+  if (!isLand(w.dir)) {
+    // Stranded in water (flood, throw, terrain change): wade straight to the closest shore.
+    stepStraight(w, isLand(target) ? target : nearestShore(w.dir) ?? target, step)
+    return false
+  }
   if (angle <= step || angle < 1e-4) {
     if (!isLand(target)) return true
     w.dir.copy(target)
@@ -1813,6 +1863,7 @@ function updateFollowers(dt: number) {
       }
       continue
     }
+    unstick(f, dt)
     f.heat = Math.max(0, f.heat - (f.sunned ? 0 : 1.6) * dt)
     f.sunned = false
     f.jump = Math.max(0, f.jump - dt)
