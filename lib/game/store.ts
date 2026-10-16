@@ -47,6 +47,7 @@ export interface Job {
   dir: Vector3
   spot: Vector3
   work: number
+  auto?: boolean
 }
 
 export type UfoPhase = 'arrive' | 'hover' | 'land' | 'landed' | 'leave'
@@ -439,6 +440,21 @@ function populateRocks(s: GameState) {
     if (s.buildings.some((b) => b.dir.distanceTo(d) < 0.06)) continue
     s.rocks.push(makeRock(d, 0.55 + Math.random() * 0.45))
   }
+}
+
+const MAX_ROCKS = 80
+
+function updateRocks(dt: number) {
+  for (const r of state.rocks) if (r.size < 1) r.size = Math.min(1, r.size + 0.004 * dt)
+  if (state.rocks.length >= MAX_ROCKS || Math.random() > dt * 0.12) return
+  const anchor = state.followers.length > 0 ? pick(state.followers).dir : startDir
+  const d = randomLandDirNear(anchor, 0.9, true, 10)
+  if (!d) return
+  if (state.rocks.some((r) => surfaceDist(r.dir, d) < 0.3)) return
+  if (state.buildings.some((b) => surfaceDist(b.dir, d) < 0.45)) return
+  state.rocks.push(makeRock(d, 0.35))
+  emit('dust', d, 6, 0.05, 0.3)
+  notify(true)
 }
 
 function makeTree(dir: Vector3, size: number): Tree {
@@ -1347,10 +1363,11 @@ function advanceConstruction(b: Building, rate: number, dt: number) {
 }
 
 function endJob(f: Follower, message?: string) {
+  const auto = f.job?.auto
   f.job = null
   f.state = 'idle'
   f.timer = 0.5
-  if (message) say(message)
+  if (message && !auto) say(message)
   notify(true)
 }
 
@@ -1457,12 +1474,13 @@ function runJob(f: Follower, dt: number) {
           state.trees.splice(state.trees.indexOf(tree), 1)
           state.wood += 3
           state.stats.woodChopped += 3
-          say('Timber! +3 wood', 'good')
+          if (!job.auto) say('Timber! +3 wood', 'good')
           notify(true)
         } else {
           state.wood += 1
           state.stats.woodChopped++
         }
+        if (job.auto && neededMaterial() !== 'wood') return endJob(f)
       }
       return
     }
@@ -1502,9 +1520,10 @@ function runJob(f: Follower, dt: number) {
           rock = undefined
           state.stone += 2
           state.stats.stoneMined += 2
-          say('The rock is quarried! +2 stone', 'good')
+          if (!job.auto) say('The rock is quarried! +2 stone', 'good')
           notify(true)
         }
+        if (job.auto && neededMaterial() !== 'stone') return endJob(f)
       }
       return
     }
@@ -1943,8 +1962,61 @@ function setWander(f: Follower, range = 0.3) {
   f.timer = 4 + Math.random() * 4
 }
 
+function neededMaterial(): Material | null {
+  const need: Record<Material, number> = { wood: 0, stone: 0 }
+  for (const b of state.buildings) {
+    if (b.progress >= 1) continue
+    const cost = BUILD_COST[b.type]
+    need.wood += cost.wood * (1 - b.progress)
+    need.stone += cost.stone * (1 - b.progress)
+  }
+  const woodGap = need.wood - state.wood
+  const stoneGap = need.stone - state.stone
+  if (woodGap <= 0 && stoneGap <= 0) {
+    if (state.wood < 12) return 'wood'
+    if (state.stone < 6) return 'stone'
+    return null
+  }
+  return woodGap / Math.max(1, need.wood) >= stoneGap / Math.max(1, need.stone) ? 'wood' : 'stone'
+}
+
+function autoGather(f: Follower, material: Material) {
+  let targetId: number | null = null
+  let dir: Vector3 | null = null
+  if (material === 'wood') {
+    let bestD = 1.6
+    for (const t of state.trees) {
+      if (t.burning > 0 || t.charred > 0 || t.size < 0.5) continue
+      const d = surfaceDist(t.dir, f.dir)
+      if (d < bestD) {
+        bestD = d
+        targetId = t.id
+        dir = t.dir
+      }
+    }
+  } else {
+    const rock = nearestRock(f.dir, 1.8)
+    if (rock) {
+      targetId = rock.id
+      dir = rock.dir
+    }
+  }
+  if (!dir || targetId === null) return false
+  const kind: JobKind = material === 'wood' ? 'chop' : 'mine'
+  f.taskId = null
+  f.job = { kind, targetId, dir: dir.clone(), spot: jobSpot(kind, dir), work: 0, auto: true }
+  f.state = 'wander'
+  f.target.copy(f.job.spot)
+  return true
+}
+
 function decide(f: Follower) {
-  const sites = state.buildings.filter((b) => b.progress < 1 && b.burning === 0 && b.builders < 3)
+  const gathering = state.followers.filter((o) => o.job?.auto).length
+  const material = neededMaterial()
+  if (material && gathering < Math.max(2, Math.ceil(state.followers.length * 0.45)) && Math.random() < 0.55) {
+    if (autoGather(f, material)) return
+  }
+  const sites = state.buildings.filter((b) => b.progress < 1 && b.burning === 0 && b.builders < 3 && b.short.length === 0)
   if (sites.length > 0 && Math.random() < 0.85) {
     let best: Building | null = null
     let bestD = Infinity
@@ -2665,6 +2737,7 @@ export function tick(dt: number) {
   updateFollowers(dt)
   updateBuildings(dt)
   updateTrees(dt)
+  updateRocks(dt)
   updateTornadoes(dt)
   updateInvaders(dt)
   updateTetherPreview()
