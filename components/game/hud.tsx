@@ -24,7 +24,7 @@ import {
 import { AGES, TOOLS, TOOL_BY_ID, type Tool } from '@/lib/game/config'
 import { setTool, useGame } from '@/lib/game/store'
 import { toggleMusic, toggleSfx, unlockAudio, useAudioSettings } from '@/lib/game/audio'
-import { Music, Music2, Volume2, VolumeX } from 'lucide-react'
+import { Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CameraPad, ChallengeCard, ObjectivePanel } from './quests'
 
@@ -48,7 +48,7 @@ const TOOL_DESTRUCTIVE = new Set<Tool>(['lightning', 'quake', 'meteor', 'tornado
 
 const TOOL_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'z', 'x', 'c']
 
-export function Hud() {
+export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
   const started = useGame((s) => s.started)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -74,7 +74,7 @@ export function Hud() {
           <ChallengeCard />
         </div>
         <div className="flex flex-col items-end gap-2">
-          <StatsPanel />
+          <StatsPanel onOpenSaves={onOpenSaves} />
           <CameraPad />
         </div>
       </header>
@@ -117,7 +117,7 @@ function AgePanel() {
   )
 }
 
-function StatsPanel() {
+function StatsPanel({ onOpenSaves }: { onOpenSaves: () => void }) {
   const faith = useGame((s) => Math.floor(s.faith))
   const rate = useGame((s) => Math.round(s.faithRate * 10) / 10)
   const pop = useGame((s) => s.pop)
@@ -147,17 +147,27 @@ function StatsPanel() {
         </span>
       </div>
       {fear && <p className="text-[11px] font-medium text-[#ff9a7a]">Your people pray in fear</p>}
-      <AudioToggles />
+      <AudioToggles onOpenSaves={onOpenSaves} />
     </Panel>
   )
 }
 
-function AudioToggles() {
+function AudioToggles({ onOpenSaves }: { onOpenSaves: () => void }) {
   const { music, sfx } = useAudioSettings()
   const base =
     'flex size-7 items-center justify-center rounded-full border border-white/10 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]'
   return (
     <div className="mt-1 flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onOpenSaves}
+        aria-label="Save or load world"
+        title="Save / load"
+        className={cn(base, 'w-auto gap-1.5 px-2.5 text-[11px] font-medium text-[#f5c451]')}
+      >
+        <Save className="size-3.5" aria-hidden="true" />
+        Save
+      </button>
       <button
         type="button"
         onClick={() => {

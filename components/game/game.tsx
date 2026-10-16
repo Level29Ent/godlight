@@ -7,10 +7,18 @@ import { PLANET_RADIUS } from '@/lib/game/planet'
 import { Scene } from './scene'
 import { Hud } from './hud'
 import { unlockAudio } from '@/lib/game/audio'
+import { useCallback, useState } from 'react'
+import { Autosave, ContinueButton, SaveMenu } from './save-menu'
 
 const cameraPosition = startDir.clone().multiplyScalar(PLANET_RADIUS * 3).toArray() as [number, number, number]
 
 export default function Game() {
+  const [savesOpen, setSavesOpen] = useState(false)
+  const openSaves = useCallback(() => {
+    unlockAudio()
+    setSavesOpen(true)
+  }, [])
+  const closeSaves = useCallback(() => setSavesOpen(false), [])
   return (
     <main className="relative h-dvh w-full touch-none select-none overflow-hidden bg-[#060817]">
       <Canvas
@@ -21,14 +29,16 @@ export default function Game() {
       >
         <Scene />
       </Canvas>
-      <Hud />
-      <TitleScreen />
-      <GameOver />
+      <Hud onOpenSaves={openSaves} />
+      <TitleScreen onOpenSaves={openSaves} />
+      <GameOver onOpenSaves={openSaves} />
+      <SaveMenu open={savesOpen} onClose={closeSaves} />
+      <Autosave />
     </main>
   )
 }
 
-function TitleScreen() {
+function TitleScreen({ onOpenSaves }: { onOpenSaves: () => void }) {
   const started = useGame((s) => s.started)
   if (started) return null
   return (
@@ -56,12 +66,13 @@ function TitleScreen() {
       >
         Become a God
       </button>
+      <ContinueButton onOpenSaves={onOpenSaves} />
       <p className="mt-4 text-[11px] text-[#f4ecd8]/45">Drag the stars to spin the world · Hold on land to use powers · Keys 1–8 switch tools</p>
     </div>
   )
 }
 
-function GameOver() {
+function GameOver({ onOpenSaves }: { onOpenSaves: () => void }) {
   const gameOver = useGame((s) => s.gameOver)
   const harvests = useGame((s) => s.harvests)
   if (!gameOver) return null
@@ -77,6 +88,13 @@ function GameOver() {
         className="font-display mt-8 rounded-full bg-[#f5c451] px-8 py-3 font-semibold text-[#1a1406] transition hover:scale-105"
       >
         Begin anew
+      </button>
+      <button
+        type="button"
+        onClick={onOpenSaves}
+        className="font-display mt-3 rounded-full border border-[#f5c451]/40 px-8 py-2.5 text-sm font-semibold text-[#f5c451] transition hover:bg-[#f5c451]/10"
+      >
+        Load a saved world
       </button>
     </div>
   )

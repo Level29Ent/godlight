@@ -459,6 +459,142 @@ export function resetGame() {
   notify(true)
 }
 
+// ---------- save / load ----------
+
+type V3 = [number, number, number]
+
+export interface SaveData {
+  v: 1
+  faith: number
+  ageIndex: number
+  time: number
+  harvests: number
+  tool: Tool
+  objectiveIndex: number
+  challengesWon: number
+  challengeTimer: number
+  birthTimer: number
+  view: V3
+  stats: Omit<Stats, 'blessed'> & { blessed: number[] }
+  followers: { id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number }[]
+  buildings: { t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
+  trees: { d: V3; sz: number; k: 0 | 1; c: number; y: number }[]
+}
+
+const round = (n: number) => Math.round(n * 1e4) / 1e4
+const packV3 = (v: Vector3): V3 => [round(v.x), round(v.y), round(v.z)]
+const unpackV3 = (a: unknown) => {
+  const arr = Array.isArray(a) ? a : []
+  const v = new Vector3(Number(arr[0]) || 0, Number(arr[1]) || 0, Number(arr[2]) || 0)
+  return v.lengthSq() > 0 ? v.normalize() : startDir.clone()
+}
+const num = (n: unknown, fallback = 0) => (typeof n === 'number' && Number.isFinite(n) ? n : fallback)
+
+export function exportSave(): SaveData {
+  const s = state
+  return {
+    v: 1,
+    faith: round(s.faith),
+    ageIndex: s.ageIndex,
+    time: round(s.time),
+    harvests: s.harvests,
+    tool: s.tool,
+    objectiveIndex: s.objectiveIndex,
+    challengesWon: s.challengesWon,
+    challengeTimer: round(Math.max(s.challengeTimer, 20)),
+    birthTimer: round(s.birthTimer),
+    view: packV3(s.viewDir),
+    stats: { ...s.stats, blessed: [...s.stats.blessed] },
+    followers: s.followers.map((f) => ({
+      id: f.id,
+      d: packV3(f.dir),
+      h: round(f.happiness),
+      r: f.robe.getHexString(),
+      s: f.skin.getHexString(),
+      sp: round(f.speed),
+      ph: round(f.phase),
+    })),
+    buildings: s.buildings.map((b) => ({
+      t: b.type,
+      d: packV3(b.dir),
+      y: round(b.yaw),
+      p: round(b.progress),
+      hp: round(b.hp),
+      m: round(b.moisture),
+      g: round(b.growth),
+    })),
+    trees: s.trees.map((t) => ({ d: packV3(t.dir), sz: round(t.size), k: t.kind, c: round(t.charred), y: round(t.yaw) })),
+  }
+}
+
+const BUILDING_TYPES: BuildingType[] = ['house', 'farm', 'temple', 'well']
+
+export function importSave(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object' || (raw as SaveData).v !== 1) return false
+  const data = raw as SaveData
+  const fresh = createState()
+  Object.assign(state, fresh)
+
+  state.faith = Math.max(0, num(data.faith, 30))
+  state.ageIndex = Math.max(0, Math.min(AGES.length - 1, Math.floor(num(data.ageIndex))))
+  state.time = num(data.time)
+  state.harvests = num(data.harvests)
+  state.tool = data.tool in TOOL_BY_ID && TOOL_BY_ID[data.tool].unlockAge <= state.ageIndex ? data.tool : 'sun'
+  state.objectiveIndex = Math.max(0, Math.min(OBJECTIVES.length, Math.floor(num(data.objectiveIndex))))
+  state.challengesWon = num(data.challengesWon)
+  state.challengeTimer = num(data.challengeTimer, 60)
+  state.birthTimer = num(data.birthTimer, 6)
+  state.viewDir = unpackV3(data.view)
+
+  if (data.stats && typeof data.stats === 'object') {
+    for (const key of Object.keys(fresh.stats) as (keyof Stats)[]) {
+      if (key === 'blessed') continue
+      const v = (data.stats as unknown as Record<string, unknown>)[key]
+      ;(state.stats as unknown as Record<string, unknown>)[key] = typeof fresh.stats[key] === 'boolean' ? Boolean(v) : num(v)
+    }
+    state.stats.blessed = new Set(Array.isArray(data.stats.blessed) ? data.stats.blessed.map(Number) : [])
+  }
+
+  let maxId = 0
+  state.followers = (Array.isArray(data.followers) ? data.followers : []).map((f) => {
+    const follower = makeFollower(unpackV3(f.d))
+    if (Number.isInteger(f.id)) follower.id = f.id
+    maxId = Math.max(maxId, follower.id)
+    follower.happiness = num(f.h, 60)
+    if (/^[0-9a-f]{6}$/i.test(String(f.r))) follower.robe.set(`#${f.r}`)
+    if (/^[0-9a-f]{6}$/i.test(String(f.s))) follower.skin.set(`#${f.s}`)
+    follower.speed = num(f.sp, follower.speed)
+    follower.phase = num(f.ph, follower.phase)
+    return follower
+  })
+  nextId = Math.max(nextId, maxId + 1)
+
+  state.buildings = (Array.isArray(data.buildings) ? data.buildings : [])
+    .filter((b) => BUILDING_TYPES.includes(b.t))
+    .map((b) => {
+      const building = makeBuilding(b.t, unpackV3(b.d))
+      building.yaw = num(b.y)
+      building.progress = Math.max(0, Math.min(1, num(b.p, 1)))
+      building.hp = Math.max(1, Math.min(maxHp(b.t), num(b.hp, maxHp(b.t))))
+      building.moisture = num(b.m)
+      building.growth = num(b.g)
+      return building
+    })
+
+  state.trees = (Array.isArray(data.trees) ? data.trees : []).slice(0, MAX_TREES).map((t) => {
+    const tree = makeTree(unpackV3(t.d), num(t.sz, 0.6))
+    tree.kind = t.k === 1 ? 1 : 0
+    tree.charred = num(t.c)
+    tree.yaw = num(t.y)
+    return tree
+  })
+
+  state.started = true
+  updateStats()
+  notify(true)
+  return true
+}
+
 export function setCursor(dir: Vector3 | null) {
   if (dir) {
     if (state.cursor.dir) state.cursor.dir.copy(dir)
@@ -1535,7 +1671,18 @@ function updateChallenges(dt: number) {
   else if (c.timeLeft <= 0 || failEarly) finishChallenge(c, false)
 }
 
+let paused = false
+export function setPaused(value: boolean) {
+  paused = value
+  if (value) {
+    state.cursor.down = false
+    setLoop('sun', false)
+    setLoop('rain', false)
+  }
+}
+
 export function tick(dt: number) {
+  if (paused) return
   const playing = state.started && !state.gameOver
   const channeling = playing && state.cursor.down && state.cursor.dir !== null
   setLoop('sun', channeling && state.tool === 'sun')
