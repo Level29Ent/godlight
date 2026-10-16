@@ -1,8 +1,8 @@
 import { createNoise3D } from 'simplex-noise'
 import { Color, IcosahedronGeometry, BufferAttribute, Vector3 } from 'three'
 
-export const PLANET_RADIUS = 5
-export const TERRAIN_AMP = 0.5
+export const PLANET_RADIUS = 7
+export const TERRAIN_AMP = 0.7
 export const SEA_LEVEL = -0.08
 export const OCEAN_RADIUS = PLANET_RADIUS + SEA_LEVEL * TERRAIN_AMP
 

@@ -2,7 +2,8 @@
 
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { OrbitControls, Stars } from '@react-three/drei'
+import { Stars } from '@react-three/drei'
+import { CameraRig } from './camera-rig'
 import { Bloom, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import { DirectionalLight, Group, Vector3 } from 'three'
@@ -29,7 +30,7 @@ function CameraLight() {
     tmp.copy(camera.up).multiplyScalar(6)
     const right = new Vector3().crossVectors(camera.getWorldDirection(new Vector3()), camera.up).normalize()
     tmp.addScaledVector(right, -5)
-    light.current.position.copy(camera.position).add(tmp).setLength(20)
+    light.current.position.copy(camera.position).add(tmp).setLength(PLANET_RADIUS * 4)
     light.current.target.position.set(0, 0, 0)
     light.current.target.updateMatrixWorld()
   })
@@ -48,7 +49,7 @@ function CameraLight() {
       shadow-camera-top={s}
       shadow-camera-bottom={-s}
       shadow-camera-near={5}
-      shadow-camera-far={40}
+      shadow-camera-far={PLANET_RADIUS * 8}
     />
   )
 }
@@ -133,22 +134,12 @@ export function Scene() {
   return (
     <>
       <color attach="background" args={['#060817']} />
-      <fog attach="fog" args={['#060817', 40, 90]} />
-      <Stars radius={70} depth={40} count={5000} factor={4} saturation={0.3} fade speed={0.6} />
+      <fog attach="fog" args={['#060817', 55, 130]} />
+      <Stars radius={110} depth={50} count={6000} factor={5} saturation={0.3} fade speed={0.6} />
       <hemisphereLight args={['#cfe8ff', '#3b2c4f', 0.7]} />
       <ambientLight intensity={0.18} />
       <CameraLight />
-      <OrbitControls
-        makeDefault
-        enablePan={false}
-        enableDamping
-        dampingFactor={0.08}
-        rotateSpeed={0.55}
-        minDistance={8.2}
-        maxDistance={24}
-        autoRotate={!started}
-        autoRotateSpeed={0.5}
-      />
+      <CameraRig />
       <Simulation />
       <ShakeGroup>
         <Planet />
@@ -161,6 +152,8 @@ export function Scene() {
         <ParticleSystem kind="faith" />
         <ParticleSystem kind="ember" />
         <ParticleSystem kind="spark" />
+        <ParticleSystem kind="leaf" />
+        <ParticleSystem kind="dust" />
       </ShakeGroup>
       <EffectComposer multisampling={4}>
         <Bloom mipmapBlur luminanceThreshold={1} luminanceSmoothing={0.2} intensity={1.15} radius={0.7} />

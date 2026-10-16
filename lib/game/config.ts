@@ -1,4 +1,17 @@
-export type Tool = 'hand' | 'sun' | 'rain' | 'lightning' | 'meteor' | 'house' | 'farm' | 'temple'
+export type Tool =
+  | 'hand'
+  | 'sun'
+  | 'rain'
+  | 'grove'
+  | 'house'
+  | 'farm'
+  | 'well'
+  | 'lightning'
+  | 'blessing'
+  | 'temple'
+  | 'quake'
+  | 'meteor'
+  | 'tornado'
 
 export interface ToolInfo {
   id: Tool
@@ -13,11 +26,16 @@ export const TOOLS: ToolInfo[] = [
   { id: 'hand', label: 'Touch', cost: 0, unlockAge: 0, kind: 'hand', hint: 'Drag space to spin the world. Tap a follower to bless them.' },
   { id: 'sun', label: 'Sunlight', cost: 0, unlockAge: 0, kind: 'power', hint: 'Hold on the land to warm and cheer followers. Too long and things catch fire.' },
   { id: 'rain', label: 'Rain', cost: 0, unlockAge: 0, kind: 'power', hint: 'Hold to water farms, grow forests, and douse fires.' },
+  { id: 'grove', label: 'Grove', cost: 15, unlockAge: 0, kind: 'power', hint: 'Raise a sacred forest in an instant. Followers nearby are delighted.' },
   { id: 'house', label: 'House', cost: 40, unlockAge: 0, kind: 'build', hint: 'Homes for 3 more followers. New souls are born when people are happy.' },
   { id: 'farm', label: 'Farm', cost: 25, unlockAge: 0, kind: 'build', hint: 'Rain + sun grow crops. Each harvest yields faith and joy.' },
+  { id: 'well', label: 'Well', cost: 35, unlockAge: 1, kind: 'build', hint: 'A spring of fresh water. Keeps nearby farms moist and followers content.' },
   { id: 'lightning', label: 'Lightning', cost: 10, unlockAge: 1, kind: 'power', hint: 'Smite the land. Witnesses pray in fear for a while.' },
+  { id: 'blessing', label: 'Blessing', cost: 40, unlockAge: 2, kind: 'power', hint: 'A golden miracle. Heals people, quenches fires, restores buildings and burnt forests.' },
   { id: 'temple', label: 'Temple', cost: 150, unlockAge: 2, kind: 'build', hint: 'Followers pilgrimage here. Prayer at a temple yields far more faith.' },
+  { id: 'quake', label: 'Quake', cost: 30, unlockAge: 2, kind: 'power', hint: 'Shake the earth. Topples trees, cracks buildings, and fills hearts with dread.' },
   { id: 'meteor', label: 'Meteor', cost: 60, unlockAge: 3, kind: 'power', hint: 'Call down the heavens. Devastating — and unforgettable.' },
+  { id: 'tornado', label: 'Tornado', cost: 50, unlockAge: 3, kind: 'power', hint: 'Unleash a roaming twister that tears through everything in its path.' },
 ]
 
 export const TOOL_BY_ID = Object.fromEntries(TOOLS.map((t) => [t.id, t])) as Record<Tool, ToolInfo>

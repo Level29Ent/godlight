@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { Color, Vector3 } from 'three'
 import { AGES, ROBE_COLORS, SKIN_COLORS, TOOL_BY_ID, type Tool } from './config'
+import { setLoop, sfx, type SfxName } from './audio'
 import { OBJECTIVES } from './objectives'
 import {
   PLANET_RADIUS,
@@ -66,9 +67,14 @@ export interface Stats {
   houses: number
   temples: number
   farBuildings: number
+  groves: number
+  wells: number
+  blessings: number
+  quakes: number
+  tornadoes: number
 }
 
-export type BuildingType = 'house' | 'farm' | 'temple'
+export type BuildingType = 'house' | 'farm' | 'temple' | 'well'
 
 export interface Building {
   id: number
@@ -110,12 +116,23 @@ export interface Meteor {
   duration: number
 }
 
+export type ShockwaveTone = 'fire' | 'gold' | 'earth' | 'life'
+
 export interface Shockwave {
   id: number
   pos: Vector3
   normal: Vector3
   t: number
   size: number
+  tone: ShockwaveTone
+}
+
+export interface Tornado {
+  id: number
+  dir: Vector3
+  target: Vector3
+  t: number
+  life: number
 }
 
 export interface Ghost {
@@ -131,7 +148,7 @@ export interface Message {
   t: number
 }
 
-export type ParticleKind = 'faith' | 'ember' | 'spark'
+export type ParticleKind = 'faith' | 'ember' | 'spark' | 'leaf' | 'dust'
 export interface ParticleRequest {
   kind: ParticleKind
   pos: Vector3
@@ -152,6 +169,7 @@ export interface GameState {
   bolts: Bolt[]
   meteors: Meteor[]
   shockwaves: Shockwave[]
+  tornadoes: Tornado[]
   ghosts: Ghost[]
   messages: Message[]
   particleQueue: ParticleRequest[]
@@ -178,7 +196,8 @@ export interface GameState {
 
 const SUN_RADIUS = 1.1
 const RAIN_RADIUS = 1.3
-const FOLLOWER_SPEED = 0.55
+const FOLLOWER_SPEED = 0.6
+export const MAX_TREES = 340
 
 let nextId = 1
 const uid = () => nextId++
@@ -198,6 +217,7 @@ function createState(): GameState {
     bolts: [],
     meteors: [],
     shockwaves: [],
+    tornadoes: [],
     ghosts: [],
     messages: [],
     particleQueue: [],
@@ -225,6 +245,11 @@ function createState(): GameState {
       houses: 0,
       temples: 0,
       farBuildings: 0,
+      groves: 0,
+      wells: 0,
+      blessings: 0,
+      quakes: 0,
+      tornadoes: 0,
     },
     objectiveIndex: 0,
     challenge: null,
@@ -264,6 +289,10 @@ function makeFollower(dir: Vector3): Follower {
   }
 }
 
+export function maxHp(type: BuildingType) {
+  return type === 'temple' ? 220 : type === 'well' ? 140 : 100
+}
+
 function makeBuilding(type: BuildingType, dir: Vector3, complete = false): Building {
   return {
     id: uid(),
@@ -271,7 +300,7 @@ function makeBuilding(type: BuildingType, dir: Vector3, complete = false): Build
     dir: dir.clone(),
     yaw: Math.random() * Math.PI * 2,
     progress: complete ? 1 : 0,
-    hp: type === 'temple' ? 220 : 100,
+    hp: maxHp(type),
     burning: 0,
     moisture: complete ? 0.6 : 0,
     growth: 0,
@@ -299,20 +328,20 @@ function populateWorld(s: GameState) {
   const farmDir = randomLandDirNear(startDir, 0.18, true)
   if (farmDir) s.buildings = [house, makeBuilding('farm', farmDir, true)]
 
-  for (let i = 0; i < 4; i++) {
-    const d = randomLandDirNear(startDir, 0.15) ?? startDir
+  for (let i = 0; i < 5; i++) {
+    const d = randomLandDirNear(startDir, 0.12) ?? startDir
     s.followers.push(makeFollower(d))
   }
 
   const golden = Math.PI * (3 - Math.sqrt(5))
   const d = new Vector3()
-  for (let i = 0; i < 900 && s.trees.length < 110; i++) {
-    const y = 1 - (i / 899) * 2
+  for (let i = 0; i < 1800 && s.trees.length < 230; i++) {
+    const y = 1 - (i / 1799) * 2
     const r = Math.sqrt(1 - y * y)
     d.set(Math.cos(golden * i) * r, y, Math.sin(golden * i) * r)
-    randomDirNear(d, 0.08, d)
+    randomDirNear(d, 0.06, d)
     if (!isBuildable(d)) continue
-    if (d.distanceTo(startDir) < 0.12) continue
+    if (d.distanceTo(startDir) < 0.09) continue
     if (Math.random() < 0.55) continue
     s.trees.push(makeTree(d, 0.5 + Math.random() * 0.5))
   }
@@ -373,6 +402,7 @@ function killFollower(f: Follower, reason: string, tone: Message['tone'] = 'bad'
   const i = state.followers.indexOf(f)
   if (i === -1) return
   state.followers.splice(i, 1)
+  sfx('death')
   state.ghosts.push({ pos: surfacePoint(f.dir, new Vector3(), 0.1), up: f.dir.clone(), t: 0 })
   if (reason) say(reason, tone)
 }
@@ -395,6 +425,7 @@ function igniteTree(t: Tree) {
 function igniteBuilding(b: Building) {
   if (b.burning > 0) return
   b.burning = 0.001
+  sfx('ignite')
   say(`Your ${b.type} is on fire! Bring rain!`, 'bad')
 }
 
@@ -404,8 +435,10 @@ export function setTool(tool: Tool) {
   const info = TOOL_BY_ID[tool]
   if (info.unlockAge > state.ageIndex) {
     say(`${info.label} unlocks in the ${AGES[info.unlockAge].name}.`)
+    sfx('error')
     return
   }
+  if (state.tool !== tool) sfx('select')
   state.tool = tool
   notify(true)
 }
@@ -413,6 +446,7 @@ export function setTool(tool: Tool) {
 export function startGame() {
   resetGame()
   state.started = true
+  sfx('start')
   say('Your followers await a sign. Shine upon them.', 'good')
 }
 
@@ -451,6 +485,7 @@ export function pokeFollower(index: number) {
   f.happiness = Math.min(100, f.happiness + 10)
   f.jump = 0.6
   state.faith += 1
+  sfx('poke')
   emit('faith', f.dir, 6, 0.05, 0.3)
   notify(true)
 }
@@ -527,7 +562,8 @@ function castMeteor(dir: Vector3) {
 
 function meteorImpact(m: Meteor) {
   const dir = m.dir
-  state.shockwaves = [...state.shockwaves, { id: uid(), pos: m.to.clone(), normal: dir.clone(), t: 0, size: 2.6 }]
+  sfx('meteorImpact')
+  addShockwave(dir, 2.6, 'fire')
   state.flash.pos.copy(m.to).addScaledVector(dir, 1)
   state.flash.intensity = 160
   state.shake = 0.7
@@ -552,6 +588,211 @@ function meteorImpact(m: Meteor) {
   scareAround(dir, 4, 3.5)
   state.fearTimer = Math.max(state.fearTimer, 35)
   say(killed > 0 ? `${killed} follower${killed > 1 ? 's' : ''} perished. Fear spreads across the world.` : 'The impact shakes the world. All fear you now.', 'bad')
+}
+
+function addShockwave(dir: Vector3, size: number, tone: ShockwaveTone) {
+  state.shockwaves = [
+    ...state.shockwaves,
+    { id: uid(), pos: surfacePoint(dir, new Vector3()), normal: dir.clone(), t: 0, size, tone },
+  ]
+}
+
+const GROVE_RADIUS = 1.3
+const BLESSING_RADIUS = 2.2
+const QUAKE_RADIUS = 2.6
+
+function castGrove(dir: Vector3) {
+  if (!isBuildable(dir)) {
+    say(isLand(dir) ? 'Nothing takes root on these peaks.' : 'Seeds sink into the sea. Choose land.')
+    return
+  }
+  if (!spend(TOOL_BY_ID.grove.cost)) return
+  let planted = 0
+  for (let i = 0; i < 40 && planted < 10 && state.trees.length < MAX_TREES; i++) {
+    const d = randomDirNear(dir, GROVE_RADIUS / PLANET_RADIUS)
+    if (!isBuildable(d)) continue
+    if (state.trees.some((t) => surfaceDist(t.dir, d) < 0.24)) continue
+    if (state.buildings.some((b) => surfaceDist(b.dir, d) < 0.38)) continue
+    state.trees.push(makeTree(d, 0.25 + Math.random() * 0.25))
+    emit('leaf', d, 8, 0.05, 0.1)
+    planted++
+  }
+  state.stats.groves++
+  state.stats.treesGrown += planted
+  addShockwave(dir, 1.6, 'life')
+  emit('leaf', dir, 50, 0.5, 0.15)
+  for (const f of state.followers) {
+    if (!f.lost && surfaceDist(f.dir, dir) < 2) {
+      f.happiness = Math.min(100, f.happiness + 18)
+      f.jump = 0.5
+    }
+  }
+  say(planted > 0 ? `A sacred grove of ${planted} trees springs from the earth.` : 'The land here is already lush.', 'good')
+}
+
+function castBlessing(dir: Vector3) {
+  if (!spend(TOOL_BY_ID.blessing.cost)) return
+  state.stats.blessings++
+  addShockwave(dir, BLESSING_RADIUS * 1.15, 'gold')
+  state.flash.pos.copy(surfacePoint(dir, new Vector3(), 1))
+  state.flash.intensity = 50
+  emit('faith', dir, 120, 0.9, 0.2)
+  let healed = 0
+  for (const f of state.followers) {
+    if (surfaceDist(f.dir, dir) > BLESSING_RADIUS) continue
+    if (f.burning > 0) state.stats.doused++
+    f.burning = 0
+    f.scared = 0
+    f.jump = 0.8
+    if (f.lost) {
+      f.heat = 3
+      f.sunned = true
+    } else {
+      f.heat = 0
+      f.happiness = 100
+      state.stats.blessed.add(f.id)
+    }
+    healed++
+  }
+  for (const b of state.buildings) {
+    if (surfaceDist(b.dir, dir) > BLESSING_RADIUS) continue
+    if (b.burning > 0) state.stats.doused++
+    b.burning = 0
+    b.hp = maxHp(b.type)
+    if (b.type === 'farm') {
+      b.moisture = 1
+      b.growth = Math.min(0.95, b.growth + 0.35)
+    }
+    emit('faith', b.dir, 12, 0.15, 0.3)
+  }
+  for (const t of state.trees) {
+    if (surfaceDist(t.dir, dir) > BLESSING_RADIUS) continue
+    if (t.burning > 0) state.stats.doused++
+    t.burning = 0
+    t.heat = 0
+    if (t.charred > 0) {
+      t.charred = 0
+      t.size = 0.35
+      emit('leaf', t.dir, 6, 0.05, 0.2)
+    } else {
+      t.size = Math.min(1.15, t.size + 0.3)
+    }
+  }
+  state.fearTimer = Math.max(0, state.fearTimer - 10)
+  say(healed > 0 ? 'A golden miracle! Your people are renewed.' : 'Divine light washes over the land.', 'good')
+}
+
+function castQuake(dir: Vector3) {
+  if (!spend(TOOL_BY_ID.quake.cost)) return
+  state.stats.quakes++
+  state.shake = 1.2
+  addShockwave(dir, QUAKE_RADIUS * 1.2, 'earth')
+  emit('dust', dir, 160, 1.2, 0.05)
+  let toppled = 0
+  state.trees = state.trees.filter((t) => {
+    const d = surfaceDist(t.dir, dir)
+    if (d > QUAKE_RADIUS) return true
+    if (Math.random() < 0.25 + 0.6 * (1 - d / QUAKE_RADIUS)) {
+      emit('dust', t.dir, 6, 0.08, 0.1)
+      emit('leaf', t.dir, 4, 0.08, 0.3 * t.size)
+      toppled++
+      return false
+    }
+    return true
+  })
+  let cracked = 0
+  for (const b of state.buildings) {
+    const d = surfaceDist(b.dir, dir)
+    if (d > QUAKE_RADIUS) continue
+    b.hp -= (b.type === 'temple' ? 40 : 70) * (1 - d / QUAKE_RADIUS) + 10
+    emit('dust', b.dir, 20, 0.15, 0.1)
+    cracked++
+  }
+  let killed = 0
+  for (const f of [...state.followers]) {
+    const d = surfaceDist(f.dir, dir)
+    if (d < 0.5 && Math.random() < 0.5) {
+      killFollower(f, '')
+      killed++
+    } else if (d < QUAKE_RADIUS) {
+      f.jump = 0.4
+    }
+  }
+  scareAround(dir, QUAKE_RADIUS + 1.5, 3)
+  state.fearTimer = Math.max(state.fearTimer, 24)
+  const parts = [toppled && `${toppled} trees fall`, cracked && `${cracked} buildings crack`, killed && `${killed} swallowed by the earth`].filter(Boolean)
+  say(parts.length ? `The ground heaves! ${parts.join(', ')}.` : 'The ground heaves! Your people tremble.', 'bad')
+}
+
+function castTornado(dir: Vector3) {
+  if (!isLand(dir)) {
+    say('Twisters must touch down on land.')
+    return
+  }
+  if (!spend(TOOL_BY_ID.tornado.cost)) return
+  state.stats.tornadoes++
+  state.tornadoes = [
+    ...state.tornadoes,
+    { id: uid(), dir: dir.clone(), target: randomDirNear(dir, 0.35), t: 0, life: 13 },
+  ]
+  addShockwave(dir, 1.2, 'earth')
+  emit('dust', dir, 60, 0.4, 0.1)
+  scareAround(dir, 3.5, 3)
+  state.fearTimer = Math.max(state.fearTimer, 20)
+  say('A tornado touches down! Run!', 'bad')
+}
+
+const tornadoAxis = new Vector3()
+
+function updateTornadoes(dt: number) {
+  if (!state.tornadoes.length) return
+  let ended = false
+  for (const tw of state.tornadoes) {
+    tw.t += dt
+    const angle = tw.dir.angleTo(tw.target)
+    const step = (1.1 * dt) / PLANET_RADIUS
+    if (angle < step + 0.01 || Math.random() < dt * 0.3) {
+      tw.target.copy(randomDirNear(tw.dir, 0.4))
+    } else {
+      tornadoAxis.crossVectors(tw.dir, tw.target).normalize()
+      tw.dir.applyAxisAngle(tornadoAxis, step).normalize()
+    }
+    if (Math.random() < dt * 22) emit('dust', tw.dir, 2, 0.25, 0.05)
+
+    for (const f of [...state.followers]) {
+      const d = surfaceDist(f.dir, tw.dir)
+      if (d < 0.42) {
+        killFollower(f, Math.random() < 0.5 ? 'A follower was swept into the sky!' : '')
+      } else if (d < 1.8 && f.scared <= 0) {
+        f.scared = 1.5
+        f.scareFrom.copy(tw.dir)
+        f.taskId = null
+      }
+    }
+    const before = state.trees.length
+    state.trees = state.trees.filter((t) => {
+      if (surfaceDist(t.dir, tw.dir) < 0.45) {
+        emit('leaf', t.dir, 10, 0.1, 0.4)
+        emit('dust', t.dir, 4, 0.08, 0.1)
+        return false
+      }
+      return true
+    })
+    if (state.trees.length !== before) state.shake = Math.max(state.shake, 0.2)
+    for (const b of state.buildings) {
+      if (surfaceDist(b.dir, tw.dir) < 0.6) {
+        b.hp -= 60 * dt
+        if (Math.random() < dt * 10) emit('dust', b.dir, 3, 0.12, 0.2)
+      }
+    }
+    state.fearTimer = Math.max(state.fearTimer, 8)
+    if (tw.t >= tw.life) ended = true
+  }
+  if (ended) {
+    for (const tw of state.tornadoes) if (tw.t >= tw.life) emit('dust', tw.dir, 40, 0.4, 0.2)
+    state.tornadoes = state.tornadoes.filter((tw) => tw.t < tw.life)
+    say('The tornado dissipates.', 'info')
+  }
 }
 
 function placeBuilding(type: BuildingType, dir: Vector3) {
@@ -663,6 +904,7 @@ function updateFollowers(dt: number) {
         f.state = 'idle'
         emit('faith', f.dir, 24, 0.06, 0.3)
         say('A lost pilgrim has found faith in you!', 'good')
+        sfx('birth')
       }
       continue
     }
@@ -673,6 +915,7 @@ function updateFollowers(dt: number) {
 
     if (f.heat > 7 && f.burning === 0) {
       f.burning = 0.001
+      sfx('ignite')
       say('A follower caught fire under your blazing sun!', 'bad')
     }
 
@@ -732,6 +975,7 @@ function updateFollowers(dt: number) {
           if (Math.random() < dt * 2) emit('spark', b.dir, 1, 0.1, 0.2)
           if (b.progress >= 1) {
             say(`A new ${b.type} stands complete!`, 'good')
+            sfx('complete')
             emit('faith', b.dir, 24, 0.2, 0.3)
             notify(true)
           }
@@ -763,6 +1007,19 @@ function updateFollowers(dt: number) {
   }
 }
 
+const CAST_SFX: Partial<Record<Tool, SfxName>> = {
+  lightning: 'thunder',
+  meteor: 'meteorFall',
+  grove: 'grove',
+  blessing: 'blessing',
+  quake: 'quake',
+  tornado: 'tornado',
+  house: 'build',
+  farm: 'build',
+  temple: 'build',
+  well: 'build',
+}
+
 function applyCursor(dt: number) {
   const { cursor, tool } = state
   if (!cursor.dir) {
@@ -773,9 +1030,16 @@ function applyCursor(dt: number) {
 
   if (cursor.pressed) {
     cursor.pressed = false
+    const faithBefore = state.faith
+    const castSound = CAST_SFX[tool]
     if (tool === 'lightning') castLightning(dir)
     else if (tool === 'meteor') castMeteor(dir)
-    else if (tool === 'house' || tool === 'farm' || tool === 'temple') placeBuilding(tool, dir)
+    else if (tool === 'grove') castGrove(dir)
+    else if (tool === 'blessing') castBlessing(dir)
+    else if (tool === 'quake') castQuake(dir)
+    else if (tool === 'tornado') castTornado(dir)
+    else if (tool === 'house' || tool === 'farm' || tool === 'temple' || tool === 'well') placeBuilding(tool, dir)
+    if (castSound) sfx(state.faith < faithBefore ? castSound : 'error')
   }
 
   if (!cursor.down) return
@@ -837,7 +1101,7 @@ function applyCursor(dt: number) {
         }
       }
     }
-    if (state.trees.length < 170 && Math.random() < dt * 0.9) {
+    if (state.trees.length < MAX_TREES && Math.random() < dt * 0.9) {
       const d = randomDirNear(dir, RAIN_RADIUS / PLANET_RADIUS)
       if (
         isBuildable(d) &&
@@ -879,6 +1143,17 @@ function updateBuildings(dt: number) {
           emit('faith', b.dir, 30, 0.2, 0.15)
           say('Harvest! Your people feast and rejoice. +20 faith', 'good')
         }
+      }
+    }
+    if (b.type === 'well' && b.progress >= 1) {
+      for (const o of state.buildings) {
+        if (o.type === 'farm' && o.progress >= 1 && surfaceDist(o.dir, b.dir) < 2.2) o.moisture = Math.min(1, o.moisture + 0.05 * dt)
+      }
+      for (const f of state.followers) {
+        if (!f.lost && surfaceDist(f.dir, b.dir) < 1.6) f.happiness = Math.min(100, f.happiness + 0.6 * dt)
+      }
+      for (const t of state.trees) {
+        if (t.charred === 0 && t.size < 1 && surfaceDist(t.dir, b.dir) < 1.6) t.size = Math.min(1, t.size + 0.02 * dt)
       }
     }
     b.sunned = false
@@ -979,6 +1254,7 @@ function updateStats() {
   state.happiness = pop ? active.reduce((a, f) => a + f.happiness, 0) / pop : 0
   state.stats.houses = houses
   state.stats.temples = temples
+  state.stats.wells = done.filter((b) => b.type === 'well').length
   state.stats.farBuildings = done.filter((b) => b.dir.dot(startDir) < 0).length
 }
 
@@ -1012,6 +1288,7 @@ function updateEconomy(dt: number) {
       state.followers.push(baby)
       emit('faith', d, 16, 0.08, 0.2)
       say('A new follower is born!', 'good')
+      sfx('birth')
       state.birthTimer = 6 + state.pop * 0.25
     } else {
       state.birthTimer = 2
@@ -1035,6 +1312,7 @@ function updateEconomy(dt: number) {
   while (age + 1 < AGES.length && state.pop >= AGES[age + 1].pop) age++
   if (age > state.ageIndex) {
     state.ageIndex = age
+    sfx('ageUp')
     const unlocked = Object.values(TOOL_BY_ID).filter((t) => t.unlockAge === age)
     say(
       `Your civilization enters the ${AGES[age].name}!${unlocked.length ? ` ${unlocked.map((u) => u.label).join(', ')} unlocked.` : ''}`,
@@ -1057,6 +1335,7 @@ function updateObjectives() {
     state.faith += o.reward
     state.objectiveIndex++
     say(`Objective complete: ${o.title}. +${o.reward} faith`, 'good')
+    sfx('objective')
     emit('faith', state.viewDir, 40, 0.5, 0.4)
     o = OBJECTIVES[state.objectiveIndex]
     if (!o) say('Every divine purpose fulfilled. You are a true god.', 'good')
@@ -1172,6 +1451,7 @@ function startChallenge() {
       state.challenge = c
       state.lastChallenge = kind
       say(`New challenge: ${c.title}`, 'info')
+      sfx('challengeStart')
       notify(true)
       return
     }
@@ -1182,6 +1462,7 @@ function startChallenge() {
 function finishChallenge(c: Challenge, won: boolean) {
   c.status = won ? 'won' : 'lost'
   c.timeLeft = 0
+  sfx(won ? 'challengeWon' : 'challengeLost')
   if (won) {
     state.faith += c.reward
     state.challengesWon++
@@ -1255,12 +1536,17 @@ function updateChallenges(dt: number) {
 }
 
 export function tick(dt: number) {
-  if (!state.started || state.gameOver) return
+  const playing = state.started && !state.gameOver
+  const channeling = playing && state.cursor.down && state.cursor.dir !== null
+  setLoop('sun', channeling && state.tool === 'sun')
+  setLoop('rain', channeling && state.tool === 'rain')
+  if (!playing) return
   state.time += dt
   applyCursor(dt)
   updateFollowers(dt)
   updateBuildings(dt)
   updateTrees(dt)
+  updateTornadoes(dt)
   updateEffects(dt)
   updateEconomy(dt)
   updateObjectives()

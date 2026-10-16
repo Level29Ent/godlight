@@ -9,7 +9,7 @@ import { pressCursor, releaseCursor, setCursor, state } from '@/lib/game/store'
 type Controls = { enabled: boolean } | null
 
 export function Planet() {
-  const geometry = useMemo(() => createPlanetGeometry(32), [])
+  const geometry = useMemo(() => createPlanetGeometry(44), [])
   const controls = useThree((s) => s.controls) as Controls
 
   useEffect(() => {

@@ -3,10 +3,12 @@
 import { Canvas } from '@react-three/fiber'
 import { Sparkles, Sun, CloudRain, Zap } from 'lucide-react'
 import { startDir, startGame, resetGame, useGame } from '@/lib/game/store'
+import { PLANET_RADIUS } from '@/lib/game/planet'
 import { Scene } from './scene'
 import { Hud } from './hud'
+import { unlockAudio } from '@/lib/game/audio'
 
-const cameraPosition = startDir.clone().multiplyScalar(19).toArray() as [number, number, number]
+const cameraPosition = startDir.clone().multiplyScalar(PLANET_RADIUS * 3).toArray() as [number, number, number]
 
 export default function Game() {
   return (
@@ -46,7 +48,10 @@ function TitleScreen() {
       </ul>
       <button
         type="button"
-        onClick={startGame}
+        onClick={() => {
+          unlockAudio()
+          startGame()
+        }}
         className="font-display mt-8 rounded-full bg-[#f5c451] px-10 py-3.5 text-lg font-semibold text-[#1a1406] shadow-[0_0_40px_rgba(245,196,81,0.45)] transition hover:scale-105 hover:bg-[#ffd36e] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f5c451]"
       >
         Become a God

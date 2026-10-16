@@ -5,7 +5,7 @@ import { useFrame } from '@react-three/fiber'
 import { AdditiveBlending, Color, Group, Mesh, MeshStandardMaterial, Quaternion, Vector3 } from 'three'
 import { surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
-import { state, useGame, type Building } from '@/lib/game/store'
+import { maxHp, state, useGame, type Building } from '@/lib/game/store'
 
 export function Buildings() {
   const buildings = useGame((s) => s.buildings)
@@ -35,7 +35,7 @@ function BuildingMesh({ b }: { b: Building }) {
     [b.type],
   )
   const baseWall = useMemo(() => wallMat.color.clone(), [wallMat])
-  const maxHp = b.type === 'temple' ? 220 : 100
+  const fullHp = maxHp(b.type)
 
   useFrame(() => {
     if (inner.current) {
@@ -43,7 +43,7 @@ function BuildingMesh({ b }: { b: Building }) {
       inner.current.scale.set(1, 0.08 + 0.92 * p, 1)
     }
     if (scaffold.current) scaffold.current.visible = b.progress < 1
-    wallMat.color.copy(baseWall).lerp(CHARCOAL, 1 - Math.max(0, b.hp) / maxHp)
+    wallMat.color.copy(baseWall).lerp(CHARCOAL, 1 - Math.max(0, b.hp) / fullHp)
   })
 
   return (
@@ -51,11 +51,45 @@ function BuildingMesh({ b }: { b: Building }) {
       <group ref={inner}>
         {b.type === 'house' && <House wall={wallMat} />}
         {b.type === 'temple' && <Temple wall={wallMat} b={b} />}
+        {b.type === 'well' && <Well />}
       </group>
       {b.type === 'farm' && <Farm b={b} />}
       <group ref={scaffold}>
         <Scaffold size={b.type === 'temple' ? 0.32 : b.type === 'farm' ? 0.22 : 0.14} height={b.type === 'farm' ? 0.06 : 0.3} />
       </group>
+    </group>
+  )
+}
+
+function Well() {
+  const water = useRef<Mesh>(null)
+  useFrame(({ clock }) => {
+    if (water.current) (water.current.material as MeshStandardMaterial).emissiveIntensity = 0.8 + Math.sin(clock.elapsedTime * 2.5) * 0.3
+  })
+  return (
+    <group>
+      <mesh position={[0, 0.06, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.13, 0.15, 0.12, 12]} />
+        <meshStandardMaterial color="#9c948a" roughness={0.95} flatShading />
+      </mesh>
+      <mesh ref={water} position={[0, 0.115, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.105, 16]} />
+        <meshStandardMaterial color="#3fa7d6" emissive="#2a8fd0" emissiveIntensity={0.9} roughness={0.15} />
+      </mesh>
+      {[-0.11, 0.11].map((x) => (
+        <mesh key={x} position={[x, 0.2, 0]} castShadow>
+          <boxGeometry args={[0.025, 0.2, 0.025]} />
+          <meshStandardMaterial color="#6b4228" flatShading />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.32, 0]} rotation={[0, 0, 0]} castShadow>
+        <coneGeometry args={[0.17, 0.1, 4]} />
+        <meshStandardMaterial color="#c4553a" roughness={0.8} flatShading />
+      </mesh>
+      <mesh position={[0, 0.25, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.012, 0.012, 0.22, 6]} />
+        <meshStandardMaterial color="#4a3426" />
+      </mesh>
     </group>
   )
 }

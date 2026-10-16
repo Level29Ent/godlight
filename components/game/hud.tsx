@@ -1,28 +1,64 @@
 'use client'
 
 import { useEffect } from 'react'
-import { CloudRain, Flame, Hand, Home, Landmark, Lock, Sparkles, Sun, Users, Wheat, Zap, Skull, Smile } from 'lucide-react'
+import {
+  Activity,
+  CloudRain,
+  Droplets,
+  Flame,
+  Hand,
+  Home,
+  Landmark,
+  Lock,
+  Sparkles,
+  Sun,
+  Tornado,
+  Trees,
+  Users,
+  Wheat,
+  Zap,
+  Skull,
+  Smile,
+  Wand2,
+} from 'lucide-react'
 import { AGES, TOOLS, TOOL_BY_ID, type Tool } from '@/lib/game/config'
 import { setTool, useGame } from '@/lib/game/store'
+import { toggleMusic, toggleSfx, unlockAudio, useAudioSettings } from '@/lib/game/audio'
+import { Music, Music2, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CameraPad, ChallengeCard, ObjectivePanel } from './quests'
 
 const ICONS: Record<Tool, typeof Sun> = {
   hand: Hand,
   sun: Sun,
   rain: CloudRain,
+  grove: Trees,
   house: Home,
   farm: Wheat,
+  well: Droplets,
   lightning: Zap,
+  blessing: Wand2,
   temple: Landmark,
+  quake: Activity,
   meteor: Flame,
+  tornado: Tornado,
 }
+
+const TOOL_DESTRUCTIVE = new Set<Tool>(['lightning', 'quake', 'meteor', 'tornado'])
+
+const TOOL_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'z', 'x', 'c']
 
 export function Hud() {
   const started = useGame((s) => s.started)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const n = Number.parseInt(e.key, 10)
-      if (n >= 1 && n <= TOOLS.length) setTool(TOOLS[n - 1].id)
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return
+      const key = e.key.toLowerCase()
+      if (key === 'm') return toggleMusic()
+      if (key === 'n') return toggleSfx()
+      const i = TOOL_KEYS.indexOf(key)
+      if (i >= 0 && i < TOOLS.length) setTool(TOOLS[i].id)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -32,8 +68,15 @@ export function Hud() {
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 sm:p-5">
       <header className="flex items-start justify-between gap-3">
-        <AgePanel />
-        <StatsPanel />
+        <div className="flex flex-col gap-2">
+          <AgePanel />
+          <ObjectivePanel />
+          <ChallengeCard />
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <StatsPanel />
+          <CameraPad />
+        </div>
       </header>
       <Messages />
       <Toolbar />
@@ -104,7 +147,44 @@ function StatsPanel() {
         </span>
       </div>
       {fear && <p className="text-[11px] font-medium text-[#ff9a7a]">Your people pray in fear</p>}
+      <AudioToggles />
     </Panel>
+  )
+}
+
+function AudioToggles() {
+  const { music, sfx } = useAudioSettings()
+  const base =
+    'flex size-7 items-center justify-center rounded-full border border-white/10 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]'
+  return (
+    <div className="mt-1 flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => {
+          unlockAudio()
+          toggleMusic()
+        }}
+        aria-pressed={music}
+        aria-label={music ? 'Mute music' : 'Play music'}
+        title={music ? 'Mute music (M)' : 'Play music (M)'}
+        className={cn(base, music ? 'text-[#f5c451]' : 'text-[#f4ecd8]/40')}
+      >
+        {music ? <Music className="size-3.5" aria-hidden="true" /> : <Music2 className="size-3.5 opacity-60" aria-hidden="true" />}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          unlockAudio()
+          toggleSfx()
+        }}
+        aria-pressed={sfx}
+        aria-label={sfx ? 'Mute sound effects' : 'Enable sound effects'}
+        title={sfx ? 'Mute sound effects (N)' : 'Enable sound effects (N)'}
+        className={cn(base, sfx ? 'text-[#f5c451]' : 'text-[#f4ecd8]/40')}
+      >
+        {sfx ? <Volume2 className="size-3.5" aria-hidden="true" /> : <VolumeX className="size-3.5" aria-hidden="true" />}
+      </button>
+    </div>
   )
 }
 
@@ -160,7 +240,14 @@ function Toolbar() {
                   locked && 'opacity-45',
                 )}
               >
-                <span className="absolute left-1.5 top-1 text-[9px] font-medium opacity-50">{i + 1}</span>
+                <span className="absolute left-1.5 top-1 text-[9px] font-medium uppercase opacity-50">{TOOL_KEYS[i]}</span>
+                <span
+                  className={cn(
+                    'absolute right-1.5 top-1.5 size-1.5 rounded-full',
+                    t.kind === 'build' ? 'bg-[#8fd3ff]' : TOOL_DESTRUCTIVE.has(t.id) ? 'bg-[#ff7a5c]' : t.kind === 'power' ? 'bg-[#9be37a]' : 'bg-transparent',
+                  )}
+                  aria-hidden="true"
+                />
                 {locked ? <Lock className="size-5" aria-hidden="true" /> : <Icon className="size-5" aria-hidden="true" />}
                 <span className="text-[10px] font-medium leading-tight sm:text-[11px]">{t.label}</span>
                 {t.cost > 0 && (

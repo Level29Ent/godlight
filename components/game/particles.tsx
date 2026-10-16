@@ -20,6 +20,8 @@ const CONFIGS: Record<ParticleKind, Config> = {
   faith: { max: 500, size: 0.14, life: [1.4, 2.4], color: [2.2, 1.7, 0.6], rise: 0.7, burst: 0.25, gravity: 0, drag: 0.6 },
   ember: { max: 700, size: 0.1, life: [0.6, 1.3], color: [3, 1.1, 0.25], rise: 0.9, burst: 0.3, gravity: 0, drag: 1.2 },
   spark: { max: 500, size: 0.09, life: [0.4, 0.9], color: [3, 2.6, 1.8], rise: 1.6, burst: 2.6, gravity: 4, drag: 1.5 },
+  leaf: { max: 600, size: 0.12, life: [1, 2], color: [0.45, 1.3, 0.35], rise: 0.9, burst: 1.4, gravity: 1.2, drag: 1.4 },
+  dust: { max: 900, size: 0.22, life: [0.9, 1.8], color: [0.42, 0.33, 0.24], rise: 0.6, burst: 1.6, gravity: 0.6, drag: 2 },
 }
 
 let sharedTexture: CanvasTexture | null = null

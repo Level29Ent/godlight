@@ -16,13 +16,23 @@ import {
   Color,
 } from 'three'
 import { surfaceQuaternion } from '@/lib/game/orient'
-import { PLANET_RADIUS } from '@/lib/game/planet'
-import { meteorPosition, state, useGame, type Bolt, type Meteor, type Shockwave } from '@/lib/game/store'
+import { PLANET_RADIUS, surfacePoint } from '@/lib/game/planet'
+import {
+  meteorPosition,
+  state,
+  useGame,
+  type Bolt,
+  type Meteor,
+  type Shockwave,
+  type ShockwaveTone,
+  type Tornado,
+} from '@/lib/game/store'
 
 export function Effects() {
   const bolts = useGame((s) => s.bolts)
   const meteors = useGame((s) => s.meteors)
   const shockwaves = useGame((s) => s.shockwaves)
+  const tornadoes = useGame((s) => s.tornadoes)
   return (
     <group>
       {bolts.map((b) => (
@@ -33,6 +43,9 @@ export function Effects() {
       ))}
       {shockwaves.map((s) => (
         <ShockwaveMesh key={s.id} wave={s} />
+      ))}
+      {tornadoes.map((t) => (
+        <TornadoMesh key={t.id} tornado={t} />
       ))}
       <Ghosts />
       <Flash />
@@ -91,13 +104,21 @@ function MeteorMesh({ meteor }: { meteor: Meteor }) {
   )
 }
 
+const TONE_COLORS: Record<ShockwaveTone, { ring: [number, number, number]; dome: [number, number, number] }> = {
+  fire: { ring: [3, 1.6, 0.6], dome: [3.5, 1.6, 0.4] },
+  gold: { ring: [3.2, 2.6, 1.1], dome: [2.6, 2.1, 0.9] },
+  earth: { ring: [1.1, 0.8, 0.5], dome: [0.5, 0.38, 0.26] },
+  life: { ring: [0.7, 2.6, 0.9], dome: [0.4, 1.6, 0.5] },
+}
+
 function ShockwaveMesh({ wave }: { wave: Shockwave }) {
   const ring = useRef<Mesh>(null)
   const dome = useRef<Mesh>(null)
   const quaternion = useMemo(() => surfaceQuaternion(wave.normal, 0, new Quaternion()), [wave])
+  const colors = TONE_COLORS[wave.tone] ?? TONE_COLORS.fire
   const ringMat = useMemo(
-    () => new MeshBasicMaterial({ color: new Color(3, 1.6, 0.6), transparent: true, toneMapped: false, depthWrite: false, blending: AdditiveBlending }),
-    [],
+    () => new MeshBasicMaterial({ color: new Color(...colors.ring), transparent: true, toneMapped: false, depthWrite: false, blending: AdditiveBlending }),
+    [colors],
   )
 
   useFrame(() => {
@@ -118,7 +139,51 @@ function ShockwaveMesh({ wave }: { wave: Shockwave }) {
       </mesh>
       <mesh ref={dome} raycast={() => null}>
         <sphereGeometry args={[1, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshBasicMaterial color={[3.5, 1.6, 0.4]} transparent toneMapped={false} depthWrite={false} blending={AdditiveBlending} />
+        <meshBasicMaterial color={colors.dome} transparent toneMapped={false} depthWrite={false} blending={AdditiveBlending} />
+      </mesh>
+    </group>
+  )
+}
+
+const FUNNEL_RINGS = 9
+
+function TornadoMesh({ tornado }: { tornado: Tornado }) {
+  const root = useRef<Group>(null)
+  const spin = useRef<Group>(null)
+  const fade = useRef(0)
+
+  useFrame(({ clock }, dt) => {
+    if (!root.current || !spin.current) return
+    surfacePoint(tornado.dir, root.current.position, -0.05)
+    surfaceQuaternion(tornado.dir, 0, root.current.quaternion)
+    const remaining = tornado.life - tornado.t
+    const target = Math.min(1, tornado.t / 0.8, remaining / 1.2)
+    fade.current += (target - fade.current) * Math.min(1, dt * 6)
+    root.current.scale.setScalar(Math.max(0.01, fade.current))
+    spin.current.rotation.y = clock.elapsedTime * 7
+    spin.current.children.forEach((c, i) => {
+      c.position.x = Math.sin(clock.elapsedTime * 3 + i * 0.7) * 0.05 * i
+      c.position.z = Math.cos(clock.elapsedTime * 2.4 + i * 0.6) * 0.04 * i
+    })
+  })
+
+  return (
+    <group ref={root}>
+      <group ref={spin}>
+        {Array.from({ length: FUNNEL_RINGS }, (_, i) => {
+          const h = i / (FUNNEL_RINGS - 1)
+          const r = 0.08 + h * h * 0.55
+          return (
+            <mesh key={i} position={[0, 0.1 + h * 2.1, 0]} rotation={[Math.PI / 2, 0, i]} raycast={() => null}>
+              <torusGeometry args={[r, 0.04 + h * 0.09, 6, 24]} />
+              <meshStandardMaterial color="#9a8f86" transparent opacity={0.55 - h * 0.15} roughness={1} depthWrite={false} />
+            </mesh>
+          )
+        })}
+      </group>
+      <mesh position={[0, 1.1, 0]} raycast={() => null}>
+        <coneGeometry args={[0.55, 2.3, 24, 1, true]} />
+        <meshStandardMaterial color="#b8aea4" transparent opacity={0.18} side={2} depthWrite={false} />
       </mesh>
     </group>
   )
