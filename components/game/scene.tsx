@@ -11,6 +11,8 @@ import { PLANET_RADIUS } from '@/lib/game/planet'
 import { state, tick, useGame } from '@/lib/game/store'
 import { Planet } from './planet'
 import { Followers } from './followers'
+import { Invaders } from './invaders'
+import { Tether } from './tether'
 import { Trees } from './trees'
 import { Buildings } from './buildings'
 import { CursorFX } from './cursor-fx'
@@ -146,6 +148,8 @@ export function Scene() {
         <Trees />
         <Buildings />
         <Followers />
+        <Invaders />
+        <Tether />
         <AmbientClouds />
         <CursorFX />
         <Effects />

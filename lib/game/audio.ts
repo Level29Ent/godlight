@@ -22,6 +22,16 @@ export type SfxName =
   | 'challengeWon'
   | 'challengeLost'
   | 'start'
+  | 'tether'
+  | 'assign'
+  | 'chop'
+  | 'ufoArrive'
+  | 'ufoLand'
+  | 'zap'
+  | 'alienHit'
+  | 'alienDie'
+  | 'ufoExplode'
+  | 'abduct'
 
 export type LoopName = 'sun' | 'rain'
 
@@ -52,6 +62,11 @@ const MIN_GAP: Partial<Record<SfxName, number>> = {
   ignite: 0.4,
   error: 0.4,
   select: 0.04,
+  chop: 0.12,
+  zap: 0.08,
+  alienHit: 0.1,
+  alienDie: 0.1,
+  abduct: 1,
 }
 
 function createImpulse(c: AudioContext, seconds: number, decay: number) {
@@ -333,6 +348,45 @@ export function sfx(name: SfxName) {
       break
     case 'start':
       ;[60, 64, 67, 72, 76].forEach((n, i) => bell(n, i * 0.12, 0.08, 1.8))
+      break
+    case 'tether':
+      tone({ freq: midi(81), to: midi(88), dur: 0.18, gain: 0.06, wet: 0.5 })
+      tone({ freq: midi(93), start: 0.06, dur: 0.3, gain: 0.03, wet: 0.7 })
+      break
+    case 'assign':
+      ;[76, 83].forEach((n, i) => tone({ freq: midi(n), start: i * 0.07, dur: 0.22, gain: 0.07, type: 'triangle', wet: 0.5 }))
+      break
+    case 'chop':
+      tone({ freq: rand(320, 380), to: 140, dur: 0.06, gain: 0.16, type: 'triangle' })
+      noise({ type: 'bandpass', freq: 2400, q: 3, dur: 0.04, gain: 0.12 })
+      break
+    case 'ufoArrive':
+      tone({ freq: 220, to: 880, attack: 0.4, dur: 1.4, gain: 0.05, type: 'sawtooth', wet: 0.7 })
+      tone({ freq: 233, to: 660, attack: 0.4, dur: 1.4, gain: 0.04, type: 'square', wet: 0.7 })
+      for (let i = 0; i < 4; i++) tone({ freq: midi(84 + (i % 2) * 3), start: 1 + i * 0.16, dur: 0.14, gain: 0.04, type: 'square', wet: 0.5 })
+      break
+    case 'ufoLand':
+      tone({ freq: 160, to: 60, dur: 0.6, gain: 0.25, type: 'sine' })
+      noise({ type: 'lowpass', freq: 800, to: 100, dur: 0.8, gain: 0.3, wet: 0.3 })
+      break
+    case 'zap':
+      tone({ freq: rand(1600, 2000), to: 300, dur: 0.12, gain: 0.05, type: 'square' })
+      break
+    case 'alienHit':
+      tone({ freq: 700, to: 420, dur: 0.1, gain: 0.06, type: 'square' })
+      break
+    case 'alienDie':
+      tone({ freq: 900, to: 120, dur: 0.35, gain: 0.08, type: 'sawtooth', wet: 0.3 })
+      noise({ type: 'bandpass', freq: 1400, q: 2, dur: 0.15, gain: 0.12 })
+      break
+    case 'ufoExplode':
+      tone({ freq: 120, to: 30, dur: 1.4, gain: 0.6, type: 'sine' })
+      noise({ type: 'lowpass', freq: 3000, to: 120, dur: 2.2, gain: 0.7, wet: 0.5 })
+      tone({ freq: 1400, to: 100, dur: 0.8, gain: 0.06, type: 'sawtooth', wet: 0.4 })
+      break
+    case 'abduct':
+      tone({ freq: 300, to: 1200, attack: 0.3, dur: 1.2, gain: 0.05, type: 'sine', wet: 0.8 })
+      tone({ freq: 305, to: 1210, attack: 0.3, dur: 1.2, gain: 0.04, type: 'triangle', wet: 0.8 })
       break
   }
 }

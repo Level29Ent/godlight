@@ -22,9 +22,9 @@ import {
   Wand2,
 } from 'lucide-react'
 import { AGES, TOOLS, TOOL_BY_ID, type Tool } from '@/lib/game/config'
-import { setTool, useGame } from '@/lib/game/store'
+import { cancelTether, setTool, useGame } from '@/lib/game/store'
 import { toggleMusic, toggleSfx, unlockAudio, useAudioSettings } from '@/lib/game/audio'
-import { Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
+import { Axe, Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CameraPad, ChallengeCard, ObjectivePanel } from './quests'
 
@@ -55,6 +55,7 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return
       const key = e.key.toLowerCase()
+      if (key === 'escape') return cancelTether()
       if (key === 'm') return toggleMusic()
       if (key === 'n') return toggleSfx()
       const i = TOOL_KEYS.indexOf(key)
@@ -78,7 +79,11 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
           <CameraPad />
         </div>
       </header>
+      <div className="flex flex-1 flex-col items-center gap-2 pt-2">
+        <InvasionBanner />
+      </div>
       <Messages />
+      <TetherHint />
       <Toolbar />
     </div>
   )
@@ -124,6 +129,7 @@ function StatsPanel({ onOpenSaves }: { onOpenSaves: () => void }) {
   const capacity = useGame((s) => s.capacity)
   const happiness = useGame((s) => Math.round(s.happiness))
   const fear = useGame((s) => s.fearTimer > 0)
+  const wood = useGame((s) => Math.floor(s.wood))
 
   return (
     <Panel className="flex flex-col items-end gap-2 px-4 py-3">
@@ -140,6 +146,11 @@ function StatsPanel({ onOpenSaves }: { onOpenSaves: () => void }) {
           <span className="text-[#f4ecd8]/50">/{capacity}</span>
           <span className="sr-only">followers</span>
         </span>
+        <span className="flex items-center gap-1.5" title="Wood (speeds up building)">
+          <Axe className="size-4 text-[#d9a066]" aria-hidden="true" />
+          {wood}
+          <span className="sr-only">wood</span>
+        </span>
         <span className="flex items-center gap-1.5" title="Happiness">
           {fear ? <Skull className="size-4 text-[#ff7a5c]" aria-hidden="true" /> : <Smile className="size-4 text-[#9be38a]" aria-hidden="true" />}
           {happiness}%
@@ -149,6 +160,60 @@ function StatsPanel({ onOpenSaves }: { onOpenSaves: () => void }) {
       {fear && <p className="text-[11px] font-medium text-[#ff9a7a]">Your people pray in fear</p>}
       <AudioToggles onOpenSaves={onOpenSaves} />
     </Panel>
+  )
+}
+
+function InvasionBanner() {
+  const active = useGame((s) => s.ufos.length > 0 || s.aliens.length > 0)
+  const ufos = useGame((s) => s.ufos.length)
+  const aliens = useGame((s) => s.aliens.length)
+  if (!active) return null
+  return (
+    <div
+      role="alert"
+      className="pointer-events-auto flex items-center gap-3 rounded-full border border-[#7dff9a]/40 bg-[#0b1f14]/80 px-4 py-2 text-sm text-[#d9ffe2] shadow-lg shadow-[#3dff7a]/10 backdrop-blur-md"
+    >
+      <span className="relative flex size-2.5">
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#7dff9a] opacity-75" />
+        <span className="relative inline-flex size-2.5 rounded-full bg-[#7dff9a]" />
+      </span>
+      <span className="font-display font-semibold tracking-wide">Invasion!</span>
+      <span className="tabular-nums text-[#d9ffe2]/80">
+        {ufos > 0 && `${ufos} UFO${ufos > 1 ? 's' : ''}`}
+        {ufos > 0 && aliens > 0 && ' · '}
+        {aliens > 0 && `${aliens} alien${aliens > 1 ? 's' : ''}`}
+      </span>
+      <span className="hidden text-xs text-[#d9ffe2]/60 sm:inline">Smite them, or tether followers to fight</span>
+    </div>
+  )
+}
+
+function TetherHint() {
+  const tool = useGame((s) => s.tool)
+  const active = useGame((s) => s.tether.followerId !== null)
+  const dragging = useGame((s) => s.tether.dragging)
+  const preview = useGame((s) => s.tether.preview)
+  if (tool !== 'hand') return null
+  let text = 'Drag from a follower to give them a task — trees, farms, temples, builds, or invaders'
+  if (active) {
+    text = preview
+      ? preview.kind
+        ? `${dragging ? 'Release' : 'Click'} to assign: ${preview.label}`
+        : "Can't send followers across water"
+      : dragging
+        ? 'Drag the tether onto a target'
+        : 'Click a target to assign · click the follower again to free them · Esc to cancel'
+  }
+  return (
+    <p
+      className={cn(
+        'mx-auto mb-2 max-w-md rounded-full px-3 py-1 text-center text-xs backdrop-blur-sm',
+        active && preview && !preview.kind ? 'bg-[#3a0f0f]/70 text-[#ffb3a8]' : 'bg-black/30 text-[#f4ecd8]/75',
+      )}
+      aria-live="polite"
+    >
+      {text}
+    </p>
   )
 }
 

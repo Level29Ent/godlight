@@ -4,7 +4,7 @@ import { useEffect, useMemo } from 'react'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { AdditiveBlending, BackSide, Color } from 'three'
 import { createPlanetGeometry, OCEAN_RADIUS, PLANET_RADIUS } from '@/lib/game/planet'
-import { pressCursor, releaseCursor, setCursor, state } from '@/lib/game/store'
+import { pressCursor, releaseCursor, setCursor, state, tetherClick } from '@/lib/game/store'
 
 type Controls = { enabled: boolean } | null
 
@@ -30,7 +30,11 @@ export function Planet() {
   }
 
   const onDown = (e: ThreeEvent<PointerEvent>) => {
-    if (!state.started || state.tool === 'hand') return
+    if (!state.started) return
+    if (state.tool === 'hand') {
+      if (tetherClick(e.point.clone().normalize())) e.stopPropagation()
+      return
+    }
     e.stopPropagation()
     pressCursor(e.point.clone().normalize())
     if (controls) controls.enabled = false

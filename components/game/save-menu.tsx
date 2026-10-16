@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import useSWR, { useSWRConfig } from 'swr'
-import { CloudUpload, FolderOpen, Loader2, LogOut, RotateCcw, Trash2, Users, Sparkles, X } from 'lucide-react'
+import { CloudUpload, FolderOpen, Link2, Loader2, LogOut, RotateCcw, Trash2, Users, Sparkles, X } from 'lucide-react'
 import { deleteSave, listSaves, loadGame, saveGame } from '@/app/actions/saves'
-import { signIn, signOut, signUp, useSession } from '@/lib/auth-client'
+import { ensureGuest, signIn, signOut, signUp, useSession } from '@/lib/auth-client'
 import { AUTOSAVE_INTERVAL_MS, AUTOSAVE_SLOT, SLOT_COUNT, type SaveSummary } from '@/lib/game/save-slots'
 import { exportSave, importSave, say, setPaused, useGame } from '@/lib/game/store'
 import { sfx } from '@/lib/game/audio'
@@ -19,9 +19,15 @@ function useSaves(userId: string | undefined) {
 export function SaveMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: session, isPending } = useSession()
   const dialogRef = useRef<HTMLDivElement>(null)
+  const [linking, setLinking] = useState(false)
+
+  useEffect(() => {
+    if (open && !isPending && !session?.user) ensureGuest()
+  }, [open, isPending, session?.user])
 
   useEffect(() => {
     if (!open) return
+    setLinking(false)
     setPaused(true)
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -69,15 +75,21 @@ export function SaveMenu({ open, onClose }: { open: boolean; onClose: () => void
         </div>
 
         <div className="mt-5">
-          {isPending ? (
+          {isPending || !session?.user ? (
             <div className="flex items-center justify-center py-10 text-[#f4ecd8]/60">
               <Loader2 className="size-5 animate-spin" aria-hidden="true" />
               <span className="sr-only">Loading</span>
             </div>
-          ) : session?.user ? (
-            <SlotList userId={session.user.id} email={session.user.email} onClose={onClose} />
+          ) : linking ? (
+            <AuthPanel onBack={() => setLinking(false)} />
           ) : (
-            <AuthPanel />
+            <SlotList
+              userId={session.user.id}
+              email={session.user.email}
+              guest={!!session.user.isAnonymous}
+              onLink={() => setLinking(true)}
+              onClose={onClose}
+            />
           )}
         </div>
       </div>
@@ -85,7 +97,7 @@ export function SaveMenu({ open, onClose }: { open: boolean; onClose: () => void
   )
 }
 
-function AuthPanel() {
+function AuthPanel({ onBack }: { onBack: () => void }) {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-up')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -112,6 +124,7 @@ function AuthPanel() {
       return
     }
     sfx('select')
+    onBack()
   }
 
   const input =
@@ -119,10 +132,17 @@ function AuthPanel() {
 
   return (
     <div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-3 text-xs text-[#f4ecd8]/60 transition hover:text-[#f4ecd8]"
+      >
+        ← Back to saves
+      </button>
       <p className="text-sm leading-relaxed text-[#f4ecd8]/70">
         {mode === 'sign-up'
-          ? 'Create an account to keep your worlds safe in the heavens and continue on any device.'
-          : 'Welcome back. Sign in to return to your worlds.'}
+          ? 'Optional: link an email so your guest worlds follow you to any device. Your saves move over automatically.'
+          : 'Sign in to an existing account. Guest saves fill any empty slots there.'}
       </p>
       <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-3">
         {mode === 'sign-up' && (
@@ -178,7 +198,19 @@ function AuthPanel() {
   )
 }
 
-function SlotList({ userId, email, onClose }: { userId: string; email: string; onClose: () => void }) {
+function SlotList({
+  userId,
+  email,
+  guest,
+  onLink,
+  onClose,
+}: {
+  userId: string
+  email: string
+  guest: boolean
+  onLink: () => void
+  onClose: () => void
+}) {
   const { data: saves, isLoading, mutate } = useSaves(userId)
   const started = useGame((s) => s.started)
   const gameOver = useGame((s) => s.gameOver)
@@ -229,17 +261,35 @@ function SlotList({ userId, email, onClose }: { userId: string; email: string; o
   return (
     <div>
       <div className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 px-3.5 py-2.5">
-        <p className="min-w-0 truncate text-xs text-[#f4ecd8]/70">
-          Signed in as <span className="text-[#f4ecd8]">{email}</span>
-        </p>
-        <button
-          type="button"
-          onClick={() => signOut()}
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[#f4ecd8]/60 transition hover:text-[#f4ecd8]"
-        >
-          <LogOut className="size-3.5" aria-hidden="true" />
-          Sign out
-        </button>
+        {guest ? (
+          <>
+            <p className="min-w-0 text-xs text-[#f4ecd8]/70">
+              Saving as <span className="text-[#f4ecd8]">guest</span> on this device
+            </p>
+            <button
+              type="button"
+              onClick={onLink}
+              className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-[#f5c451] transition hover:text-[#ffd36e]"
+            >
+              <Link2 className="size-3.5" aria-hidden="true" />
+              Link account
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="min-w-0 truncate text-xs text-[#f4ecd8]/70">
+              Signed in as <span className="text-[#f4ecd8]">{email}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => signOut()}
+              className="flex shrink-0 items-center gap-1.5 text-xs text-[#f4ecd8]/60 transition hover:text-[#f4ecd8]"
+            >
+              <LogOut className="size-3.5" aria-hidden="true" />
+              Sign out
+            </button>
+          </>
+        )}
       </div>
 
       <ul className="mt-4 flex flex-col gap-2.5">
@@ -375,11 +425,15 @@ function timeAgo(iso: string) {
 }
 
 export function Autosave() {
-  const { data: session } = useSession()
+  const { data: session, isPending } = useSession()
   const userId = session?.user.id
   const started = useGame((s) => s.started)
   const gameOver = useGame((s) => s.gameOver)
   const { mutate } = useSWRConfig()
+
+  useEffect(() => {
+    if (started && !isPending && !userId) ensureGuest()
+  }, [started, isPending, userId])
 
   useEffect(() => {
     if (!userId || !started || gameOver) return
@@ -407,7 +461,7 @@ export function ContinueButton({ onOpenSaves }: { onOpenSaves: () => void }) {
       onClick={onOpenSaves}
       className="font-display mt-3 rounded-full border border-[#f5c451]/40 px-8 py-2.5 text-sm font-semibold text-[#f5c451] transition hover:bg-[#f5c451]/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f5c451]"
     >
-      {session?.user ? (hasSaves ? 'Continue a saved world' : 'Your saved worlds') : 'Sign in to load a world'}
+      {hasSaves ? 'Continue a saved world' : 'Your saved worlds'}
     </button>
   )
 }

@@ -35,6 +35,64 @@ export interface Follower {
   skin: Color
   phase: number
   lost: boolean
+  hp: number
+  job: Job | null
+}
+
+export type JobKind = 'chop' | 'farm' | 'build' | 'pray' | 'fight' | 'guard'
+
+export interface Job {
+  kind: JobKind
+  targetId: number | null
+  dir: Vector3
+  spot: Vector3
+  work: number
+}
+
+export type UfoPhase = 'arrive' | 'hover' | 'land' | 'landed' | 'leave'
+
+export interface Ufo {
+  id: number
+  from: Vector3
+  to: Vector3
+  dir: Vector3
+  phase: UfoPhase
+  t: number
+  height: number
+  hp: number
+  hurt: number
+  beamTarget: number | null
+  beamT: number
+  abducted: number
+  lonely: number
+}
+
+export interface Alien {
+  id: number
+  ufoId: number
+  dir: Vector3
+  target: Vector3
+  hp: number
+  cooldown: number
+  hurt: number
+  phase: number
+}
+
+export interface Zap {
+  from: Vector3
+  to: Vector3
+  t: number
+}
+
+export interface TetherPreview {
+  kind: JobKind | null
+  label: string
+}
+
+export interface TetherState {
+  followerId: number | null
+  dragging: boolean
+  preview: TetherPreview | null
 }
 
 export type ChallengeKind = 'wildfire' | 'pilgrims' | 'festival' | 'boom' | 'harvest'
@@ -72,6 +130,11 @@ export interface Stats {
   blessings: number
   quakes: number
   tornadoes: number
+  aliensSlain: number
+  ufosDowned: number
+  invasionsRepelled: number
+  jobsAssigned: number
+  woodChopped: number
 }
 
 export type BuildingType = 'house' | 'farm' | 'temple' | 'well'
@@ -192,6 +255,12 @@ export interface GameState {
   challengeTimer: number
   challengesWon: number
   lastChallenge: ChallengeKind | null
+  wood: number
+  ufos: Ufo[]
+  aliens: Alien[]
+  zaps: Zap[]
+  invasionTimer: number
+  tether: TetherState
 }
 
 const SUN_RADIUS = 1.1
@@ -250,12 +319,23 @@ function createState(): GameState {
       blessings: 0,
       quakes: 0,
       tornadoes: 0,
+      aliensSlain: 0,
+      ufosDowned: 0,
+      invasionsRepelled: 0,
+      jobsAssigned: 0,
+      woodChopped: 0,
     },
     objectiveIndex: 0,
     challenge: null,
     challengeTimer: 60,
     challengesWon: 0,
     lastChallenge: null,
+    wood: 0,
+    ufos: [],
+    aliens: [],
+    zaps: [],
+    invasionTimer: 150,
+    tether: { followerId: null, dragging: false, preview: null },
   }
 }
 
@@ -286,6 +366,8 @@ function makeFollower(dir: Vector3): Follower {
     skin: new Color(pick(SKIN_COLORS)),
     phase: Math.random() * Math.PI * 2,
     lost: false,
+    hp: 100,
+    job: null,
   }
 }
 
@@ -476,7 +558,9 @@ export interface SaveData {
   birthTimer: number
   view: V3
   stats: Omit<Stats, 'blessed'> & { blessed: number[] }
-  followers: { id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number }[]
+  wood?: number
+  invasionTimer?: number
+  followers: { id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number; j?: [JobKind, V3] }[]
   buildings: { t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
   trees: { d: V3; sz: number; k: 0 | 1; c: number; y: number }[]
 }
@@ -505,6 +589,8 @@ export function exportSave(): SaveData {
     birthTimer: round(s.birthTimer),
     view: packV3(s.viewDir),
     stats: { ...s.stats, blessed: [...s.stats.blessed] },
+    wood: round(s.wood),
+    invasionTimer: round(Math.max(s.invasionTimer, 45)),
     followers: s.followers.map((f) => ({
       id: f.id,
       d: packV3(f.dir),
@@ -513,6 +599,7 @@ export function exportSave(): SaveData {
       s: f.skin.getHexString(),
       sp: round(f.speed),
       ph: round(f.phase),
+      ...(f.job && f.job.kind !== 'fight' ? { j: [f.job.kind, packV3(f.job.dir)] as [JobKind, V3] } : {}),
     })),
     buildings: s.buildings.map((b) => ({
       t: b.type,
@@ -528,6 +615,7 @@ export function exportSave(): SaveData {
 }
 
 const BUILDING_TYPES: BuildingType[] = ['house', 'farm', 'temple', 'well']
+const JOB_KINDS: JobKind[] = ['chop', 'farm', 'build', 'pray', 'fight', 'guard']
 
 export function importSave(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object' || (raw as SaveData).v !== 1) return false
@@ -545,6 +633,8 @@ export function importSave(raw: unknown): boolean {
   state.challengeTimer = num(data.challengeTimer, 60)
   state.birthTimer = num(data.birthTimer, 6)
   state.viewDir = unpackV3(data.view)
+  state.wood = Math.max(0, num(data.wood))
+  state.invasionTimer = Math.max(45, num(data.invasionTimer, 150))
 
   if (data.stats && typeof data.stats === 'object') {
     for (const key of Object.keys(fresh.stats) as (keyof Stats)[]) {
@@ -565,6 +655,10 @@ export function importSave(raw: unknown): boolean {
     if (/^[0-9a-f]{6}$/i.test(String(f.s))) follower.skin.set(`#${f.s}`)
     follower.speed = num(f.sp, follower.speed)
     follower.phase = num(f.ph, follower.phase)
+    if (Array.isArray(f.j) && JOB_KINDS.includes(f.j[0])) {
+      const jobDir = unpackV3(f.j[1])
+      follower.job = { kind: f.j[0], targetId: null, dir: jobDir, spot: randomDirNear(jobDir, 0.03), work: 0 }
+    }
     return follower
   })
   nextId = Math.max(nextId, maxId + 1)
@@ -612,6 +706,57 @@ export function pressCursor(dir: Vector3) {
 
 export function releaseCursor() {
   state.cursor.down = false
+  const t = state.tether
+  if (!t.dragging) return
+  t.dragging = false
+  const f = state.followers.find((x) => x.id === t.followerId)
+  const dir = state.cursor.dir
+  if (!f) return clearTether()
+  if (dir && surfaceDist(dir, f.dir) > 0.4) {
+    assignJob(f, dir)
+    clearTether()
+  }
+  notify(true)
+}
+
+function clearTether() {
+  state.tether = { followerId: null, dragging: false, preview: null }
+  notify(true)
+}
+
+export function cancelTether() {
+  if (state.tether.followerId !== null) clearTether()
+}
+
+export function beginTether(index: number) {
+  const f = state.followers[index]
+  if (!f || !state.started || f.lost) return
+  const t = state.tether
+  if (t.followerId === f.id && !t.dragging) {
+    if (f.job) {
+      f.job = null
+      f.state = 'idle'
+      f.taskId = null
+      say('Your follower is free to roam again.')
+      sfx('select')
+    }
+    clearTether()
+    return
+  }
+  state.tether = { followerId: f.id, dragging: true, preview: null }
+  f.jump = 0.4
+  sfx('tether')
+  notify(true)
+}
+
+/** Click on the planet while a follower is tethered but not being dragged. Returns true if consumed. */
+export function tetherClick(dir: Vector3) {
+  const t = state.tether
+  if (t.followerId === null || t.dragging) return false
+  const f = state.followers.find((x) => x.id === t.followerId)
+  if (f) assignJob(f, dir)
+  clearTether()
+  return true
 }
 
 export function pokeFollower(index: number) {
@@ -672,6 +817,7 @@ function castLightning(dir: Vector3) {
     }
   }
   if (victim) killFollower(victim, 'A follower was smitten. The others tremble.')
+  damageInvaders(dir, 0.9, 999, 70)
   for (const t of state.trees) if (surfaceDist(t.dir, dir) < 0.4) igniteTree(t)
   for (const b of state.buildings) if (surfaceDist(b.dir, dir) < 0.4) igniteBuilding(b)
 
@@ -699,6 +845,7 @@ function castMeteor(dir: Vector3) {
 function meteorImpact(m: Meteor) {
   const dir = m.dir
   sfx('meteorImpact')
+  damageInvaders(dir, 2, 999, 220)
   addShockwave(dir, 2.6, 'fire')
   state.flash.pos.copy(m.to).addScaledVector(dir, 1)
   state.flash.intensity = 160
@@ -822,6 +969,7 @@ function castQuake(dir: Vector3) {
   if (!spend(TOOL_BY_ID.quake.cost)) return
   state.stats.quakes++
   state.shake = 1.2
+  damageInvaders(dir, QUAKE_RADIUS, 22, 50)
   addShockwave(dir, QUAKE_RADIUS * 1.2, 'earth')
   emit('dust', dir, 160, 1.2, 0.05)
   let toppled = 0
@@ -915,6 +1063,13 @@ function updateTornadoes(dt: number) {
       return true
     })
     if (state.trees.length !== before) state.shake = Math.max(state.shake, 0.2)
+    damageInvaders(tw.dir, 0.5, 999, 0)
+    for (const u of state.ufos) {
+      if (u.phase === 'landed' && surfaceDist(u.dir, tw.dir) < 0.75) {
+        u.hp -= 70 * dt
+        u.hurt = 0.15
+      }
+    }
     for (const b of state.buildings) {
       if (surfaceDist(b.dir, tw.dir) < 0.6) {
         b.hp -= 60 * dt
@@ -949,23 +1104,637 @@ function placeBuilding(type: BuildingType, dir: Vector3) {
   say(`Your followers begin building a ${type}.`, 'good')
 }
 
+// ---------- tether jobs ----------
+
+export const JOB_LABELS: Record<JobKind, string> = {
+  chop: 'Chop wood',
+  farm: 'Tend farm',
+  build: 'Build',
+  pray: 'Pray at temple',
+  fight: 'Fight invader',
+  guard: 'Stand guard',
+}
+
+interface JobPlan {
+  kind: JobKind
+  targetId: number | null
+  dir: Vector3
+}
+
+function planJob(dir: Vector3): JobPlan | null {
+  for (const a of state.aliens) if (surfaceDist(a.dir, dir) < 0.45) return { kind: 'fight', targetId: a.id, dir: a.dir }
+  for (const u of state.ufos) {
+    if (u.phase === 'landed' && surfaceDist(u.dir, dir) < 0.7) return { kind: 'fight', targetId: -u.id, dir: u.dir }
+  }
+  let building: Building | null = null
+  let bestB = 0.42
+  for (const b of state.buildings) {
+    const d = surfaceDist(b.dir, dir)
+    if (d < bestB) {
+      bestB = d
+      building = b
+    }
+  }
+  if (building) {
+    if (building.progress < 1) return { kind: 'build', targetId: building.id, dir: building.dir }
+    if (building.type === 'temple') return { kind: 'pray', targetId: building.id, dir: building.dir }
+    if (building.type === 'farm') return { kind: 'farm', targetId: building.id, dir: building.dir }
+    return { kind: 'guard', targetId: null, dir: building.dir }
+  }
+  let tree: Tree | null = null
+  let bestT = 0.38
+  for (const t of state.trees) {
+    if (t.charred > 0 || t.burning > 0) continue
+    const d = surfaceDist(t.dir, dir)
+    if (d < bestT) {
+      bestT = d
+      tree = t
+    }
+  }
+  if (tree) return { kind: 'chop', targetId: tree.id, dir: tree.dir }
+  if (!isLand(dir)) return null
+  return { kind: 'guard', targetId: null, dir: dir.clone() }
+}
+
+function assignJob(f: Follower, dir: Vector3) {
+  const plan = planJob(dir)
+  if (!plan) {
+    say("Followers can't walk on water.")
+    sfx('error')
+    return
+  }
+  if (f.state === 'build' && f.taskId !== null) {
+    const b = state.buildings.find((x) => x.id === f.taskId)
+    if (b) b.builders = Math.max(0, b.builders - 1)
+  }
+  f.taskId = null
+  f.job = {
+    kind: plan.kind,
+    targetId: plan.targetId,
+    dir: plan.dir.clone(),
+    spot: jobSpot(plan.kind, plan.dir),
+    work: 0,
+  }
+  f.state = 'wander'
+  f.target.copy(f.job.spot)
+  f.happiness = Math.min(100, f.happiness + 4)
+  state.stats.jobsAssigned++
+  sfx('assign')
+  emit('faith', plan.dir, 8, 0.05, 0.2)
+  say(`${JOB_LABELS[plan.kind]}: your follower sets off.`, 'good')
+}
+
+function jobSpot(kind: JobKind, dir: Vector3) {
+  if (kind === 'guard' || kind === 'fight') return dir.clone()
+  return randomLandDirNear(dir, kind === 'chop' ? 0.035 : 0.05, false, 12) ?? dir.clone()
+}
+
+function updateTetherPreview() {
+  const t = state.tether
+  if (t.followerId === null) return
+  const f = state.followers.find((x) => x.id === t.followerId)
+  if (!f) {
+    state.tether = { followerId: null, dragging: false, preview: null }
+    notify(true)
+    return
+  }
+  const dir = state.cursor.dir
+  let next: TetherPreview | null = null
+  if (dir && surfaceDist(dir, f.dir) > 0.4) {
+    const plan = planJob(dir)
+    next = plan ? { kind: plan.kind, label: JOB_LABELS[plan.kind] } : { kind: null, label: 'Water — blocked' }
+  }
+  if (next?.label !== t.preview?.label) {
+    t.preview = next
+    notify(true)
+  }
+}
+
+function buildRate(b: Building) {
+  return b.type === 'temple' ? 0.035 : b.type === 'farm' ? 0.18 : 0.1
+}
+
+function advanceConstruction(b: Building, rate: number, dt: number) {
+  b.progress = Math.min(1, b.progress + rate * dt)
+  if (Math.random() < dt * 2) emit('spark', b.dir, 1, 0.1, 0.2)
+  if (b.progress >= 1) {
+    say(`A new ${b.type} stands complete!`, 'good')
+    sfx('complete')
+    emit('faith', b.dir, 24, 0.2, 0.3)
+    notify(true)
+  }
+}
+
+function endJob(f: Follower, message?: string) {
+  f.job = null
+  f.state = 'idle'
+  f.timer = 0.5
+  if (message) say(message)
+  notify(true)
+}
+
+function nearestAlien(dir: Vector3, range: number) {
+  let best: Alien | null = null
+  let bestD = range
+  for (const a of state.aliens) {
+    const d = surfaceDist(a.dir, dir)
+    if (d < bestD) {
+      bestD = d
+      best = a
+    }
+  }
+  return best
+}
+
+function strike(f: Follower, job: Job, dt: number, targetDir: Vector3, hit: () => void) {
+  f.target.copy(targetDir)
+  if (surfaceDist(f.dir, targetDir) > 0.2) {
+    f.state = 'wander'
+    moveToward(f, targetDir, f.speed * 1.6, dt)
+    return
+  }
+  f.state = 'build'
+  job.work += dt
+  if (job.work >= 0.7) {
+    job.work = 0
+    f.jump = 0.3
+    hit()
+  }
+}
+
+function runJob(f: Follower, dt: number) {
+  const job = f.job!
+
+  if (job.kind === 'fight' || job.kind === 'guard') {
+    let foe: Alien | null = null
+    if (job.kind === 'fight' && job.targetId !== null && job.targetId > 0) {
+      foe = state.aliens.find((a) => a.id === job.targetId) ?? null
+    }
+    if (!foe) foe = nearestAlien(job.kind === 'guard' ? job.dir : f.dir, job.kind === 'guard' ? 1.4 : 2.2)
+    if (foe) {
+      const target = foe
+      strike(f, job, dt, target.dir, () => hurtAlien(target, 12))
+      return
+    }
+    if (job.kind === 'fight' && job.targetId !== null && job.targetId < 0) {
+      const ufo = state.ufos.find((u) => u.id === -job.targetId! && u.phase === 'landed')
+      if (ufo) {
+        strike(f, job, dt, ufo.dir, () => {
+          ufo.hp -= 8
+          ufo.hurt = 0.15
+          sfx('alienHit')
+        })
+        return
+      }
+    }
+    if (job.kind === 'fight') {
+      job.kind = 'guard'
+      job.targetId = null
+      job.dir.copy(f.dir)
+      job.spot.copy(f.dir)
+      return
+    }
+    if (surfaceDist(f.dir, job.spot) > 0.06) {
+      f.state = 'wander'
+      f.target.copy(job.spot)
+      if (moveToward(f, job.spot, f.speed * 1.2, dt) && surfaceDist(f.dir, job.spot) > 0.2) job.spot.copy(f.dir)
+    } else {
+      f.state = 'idle'
+    }
+    return
+  }
+
+  if (surfaceDist(f.dir, job.spot) > 0.06) {
+    f.state = 'wander'
+    f.target.copy(job.spot)
+    if (moveToward(f, job.spot, f.speed * 1.25, dt) && surfaceDist(f.dir, job.spot) > 0.25) {
+      endJob(f, "Your follower couldn't find a dry path there.")
+    }
+    return
+  }
+  f.target.copy(job.dir)
+
+  switch (job.kind) {
+    case 'chop': {
+      const tree = state.trees.find((t) => t.id === job.targetId)
+      if (!tree || tree.burning > 0 || tree.charred > 0) {
+        const next = state.trees.find((t) => t.burning === 0 && t.charred === 0 && surfaceDist(t.dir, job.dir) < 1.4)
+        if (!next) return endJob(f, 'No more trees nearby to chop.')
+        job.targetId = next.id
+        job.dir.copy(next.dir)
+        job.spot.copy(jobSpot('chop', next.dir))
+        return
+      }
+      f.state = 'build'
+      job.work += dt
+      if (job.work >= 1.2) {
+        job.work = 0
+        sfx('chop')
+        emit('leaf', tree.dir, 4, 0.05, 0.4)
+        tree.size -= 0.12
+        if (tree.size < 0.3) {
+          state.trees.splice(state.trees.indexOf(tree), 1)
+          state.wood += 3
+          state.stats.woodChopped += 3
+          say('Timber! +3 wood', 'good')
+          notify(true)
+        } else {
+          state.wood += 1
+          state.stats.woodChopped++
+        }
+      }
+      return
+    }
+    case 'build': {
+      const b = state.buildings.find((x) => x.id === job.targetId)
+      if (!b || b.progress >= 1) return endJob(f)
+      if (b.burning > 0) return
+      f.state = 'build'
+      let rate = buildRate(b) * 1.4
+      if (state.wood > 0) {
+        rate *= 2
+        state.wood = Math.max(0, state.wood - 0.4 * dt)
+      }
+      advanceConstruction(b, rate, dt)
+      if (Math.random() < dt * 1.2) sfx('build')
+      return
+    }
+    case 'farm': {
+      const b = state.buildings.find((x) => x.id === job.targetId)
+      if (!b) return endJob(f, 'The farm is gone.')
+      f.state = 'build'
+      b.growth += 0.025 * dt
+      b.moisture = Math.min(1, b.moisture + 0.01 * dt)
+      f.happiness = Math.min(100, f.happiness + 0.5 * dt)
+      return
+    }
+    case 'pray': {
+      const b = state.buildings.find((x) => x.id === job.targetId)
+      if (!b) return endJob(f, 'The temple is gone.')
+      f.state = 'pray'
+      f.atTemple = true
+      state.faith += 0.35 * dt
+      f.happiness = Math.min(100, f.happiness + 1.5 * dt)
+      if (Math.random() < dt) emit('faith', f.dir, 1, 0.02, 0.4)
+      return
+    }
+  }
+}
+
+// ---------- invaders ----------
+
+const UFO_HP = 140
+const ALIEN_HP = 30
+let invasionActive = false
+
+function hurtAlien(a: Alien, amount: number) {
+  a.hp -= amount
+  a.hurt = 0.15
+  sfx('alienHit')
+}
+
+function damageInvaders(dir: Vector3, radius: number, alienDamage: number, ufoDamage: number) {
+  for (const a of state.aliens) {
+    if (surfaceDist(a.dir, dir) < radius) {
+      a.hp -= alienDamage
+      a.hurt = 0.2
+    }
+  }
+  if (ufoDamage <= 0) return
+  for (const u of state.ufos) {
+    if (u.height < 6 && surfaceDist(u.dir, dir) < radius + 0.4) {
+      u.hp -= ufoDamage
+      u.hurt = 0.25
+    }
+  }
+}
+
+function villageCenter() {
+  const c = new Vector3()
+  for (const f of state.followers) if (!f.lost) c.add(f.dir)
+  return c.lengthSq() > 0 ? c.normalize() : state.viewDir.clone()
+}
+
+function launchInvasion() {
+  const center = villageCenter()
+  const count = 1 + Math.min(2, Math.floor(state.ageIndex / 2))
+  for (let i = 0; i < count; i++) {
+    const to = randomLandDirNear(center, 0.22, true, 40) ?? randomLandDirNear(center, 0.4, false, 40)
+    if (!to) continue
+    const from = randomDirNear(to, 0.9)
+    state.ufos.push({
+      id: uid(),
+      from,
+      to,
+      dir: from.clone(),
+      phase: 'arrive',
+      t: -i * 1.5,
+      height: 28,
+      hp: UFO_HP,
+      hurt: 0,
+      beamTarget: null,
+      beamT: 0,
+      abducted: 0,
+      lonely: 0,
+    })
+  }
+  if (!state.ufos.length) return
+  invasionActive = true
+  state.shake = Math.max(state.shake, 0.3)
+  sfx('ufoArrive')
+  say(count > 1 ? `${count} UFOs approach! Smite them before they land!` : 'A UFO approaches! Smite it before it lands!', 'bad')
+}
+
+function spawnAliens(u: Ufo) {
+  const n = 2 + Math.min(3, state.ageIndex)
+  for (let i = 0; i < n; i++) {
+    const d = randomLandDirNear(u.dir, 0.06, false, 15) ?? u.dir.clone()
+    state.aliens.push({
+      id: uid(),
+      ufoId: u.id,
+      dir: d,
+      target: d.clone(),
+      hp: ALIEN_HP,
+      cooldown: 1 + Math.random(),
+      hurt: 0,
+      phase: Math.random() * Math.PI * 2,
+    })
+  }
+}
+
+function destroyUfo(u: Ufo) {
+  sfx('ufoExplode')
+  addShockwave(u.dir, 1.6, 'fire')
+  emit('ember', u.dir, 60, 0.3, u.height + 0.3)
+  emit('spark', u.dir, 40, 0.3, u.height + 0.3)
+  state.flash.pos.copy(surfacePoint(u.dir, new Vector3(), u.height + 0.5))
+  state.flash.intensity = 90
+  state.shake = Math.max(state.shake, 0.6)
+  state.stats.ufosDowned++
+  state.faith += 25
+  say('UFO destroyed! +25 faith', 'good')
+  for (const f of state.followers) if (surfaceDist(f.dir, u.dir) < 2.5) f.happiness = Math.min(100, f.happiness + 15)
+}
+
+const ufoPos = new Vector3()
+
+function updateUfo(u: Ufo, dt: number) {
+  u.t += dt
+  u.hurt = Math.max(0, u.hurt - dt)
+  if (u.t < 0) return
+
+  switch (u.phase) {
+    case 'arrive': {
+      const k = Math.min(1, u.t / 5)
+      const e = 1 - Math.pow(1 - k, 3)
+      u.dir.copy(u.from).lerp(u.to, e).normalize()
+      u.height = 28 - 24 * e
+      if (k >= 1) {
+        u.phase = 'hover'
+        u.t = 0
+      }
+      break
+    }
+    case 'hover': {
+      u.height = 4 + Math.sin(u.t * 2) * 0.15
+      if (u.beamTarget === null && u.abducted < 1) {
+        let best: Follower | null = null
+        let bestD = 1.3
+        for (const f of state.followers) {
+          const d = surfaceDist(f.dir, u.dir)
+          if (d < bestD) {
+            bestD = d
+            best = f
+          }
+        }
+        if (best) {
+          u.beamTarget = best.id
+          u.beamT = 0
+          sfx('abduct')
+        }
+      }
+      if (u.beamTarget !== null) {
+        const f = state.followers.find((x) => x.id === u.beamTarget)
+        if (!f) {
+          u.beamTarget = null
+        } else {
+          u.beamT += dt
+          f.scared = 1
+          f.scareFrom.copy(u.dir)
+          f.job = null
+          f.dir.lerp(u.dir, Math.min(1, dt * 1.5)).normalize()
+          f.jump = Math.max(f.jump, 0.2)
+          if (u.beamT > 2.6) {
+            u.beamTarget = null
+            u.abducted++
+            killFollower(f, 'A follower was abducted by the UFO!')
+          }
+        }
+      }
+      if (u.t > 5 && u.beamTarget === null) {
+        u.phase = 'land'
+        u.t = 0
+      }
+      break
+    }
+    case 'land':
+      u.height = Math.max(0.35, 4 - u.t * 2.4)
+      if (u.height <= 0.35) {
+        u.phase = 'landed'
+        u.t = 0
+        sfx('ufoLand')
+        addShockwave(u.dir, 1.2, 'earth')
+        emit('dust', u.dir, 60, 0.4, 0.1)
+        state.shake = Math.max(state.shake, 0.35)
+        scareAround(u.dir, 1.6, 3)
+        for (const b of state.buildings) {
+          if (surfaceDist(b.dir, u.dir) < 0.5) {
+            b.hp -= 30
+            igniteBuilding(b)
+          }
+        }
+        spawnAliens(u)
+        say('The UFO has landed. Invaders pour out!', 'bad')
+      }
+      break
+    case 'landed': {
+      u.height = 0.35
+      const crew = state.aliens.some((a) => a.ufoId === u.id)
+      u.lonely = crew ? 0 : u.lonely + dt
+      if (u.lonely > 6 || u.t > 75) {
+        u.phase = 'leave'
+        u.t = 0
+        say(crew ? 'The UFO lifts off, its crew still roaming!' : 'Its crew defeated, the UFO flees into the sky.')
+      }
+      break
+    }
+    case 'leave':
+      u.height += dt * (2 + u.t * 6)
+      break
+  }
+
+  if (u.phase !== 'arrive' && Math.random() < dt * 4) {
+    emit('spark', u.dir, 1, 0.05, u.height + 0.1)
+  }
+  void ufoPos
+}
+
+function updateAlien(a: Alien, dt: number) {
+  a.hurt = Math.max(0, a.hurt - dt)
+  a.cooldown -= dt
+
+  let prey: Follower | null = null
+  let preyD = 3
+  for (const f of state.followers) {
+    const d = surfaceDist(f.dir, a.dir)
+    if (d < preyD) {
+      preyD = d
+      prey = f
+    }
+  }
+  let mark: Building | null = null
+  let markD = 2.2
+  for (const b of state.buildings) {
+    if (b.burning > 0) continue
+    const d = surfaceDist(b.dir, a.dir)
+    if (d < markD) {
+      markD = d
+      mark = b
+    }
+  }
+
+  const range = 0.9
+  if (prey && preyD < range) {
+    if (a.cooldown <= 0) {
+      a.cooldown = 1.6 + Math.random() * 0.6
+      shoot(a, prey.dir)
+      prey.hp -= 34
+      prey.scared = Math.max(prey.scared, prey.job ? 0 : 2)
+      prey.scareFrom.copy(a.dir)
+      prey.happiness = Math.max(0, prey.happiness - 6)
+      if (prey.hp <= 0) killFollower(prey, 'A follower was vaporized by an invader!')
+    }
+    return
+  }
+  if (mark && markD < range * 0.8 && (!prey || preyD > markD)) {
+    if (a.cooldown <= 0) {
+      a.cooldown = 2 + Math.random()
+      shoot(a, mark.dir)
+      mark.hp -= 12
+      if (Math.random() < 0.3) igniteBuilding(mark)
+    }
+    return
+  }
+
+  const goal = prey && (!mark || preyD < markD + 0.6) ? prey.dir : mark?.dir
+  if (goal) {
+    a.target.copy(goal)
+  } else if (surfaceDist(a.dir, a.target) < 0.1) {
+    a.target.copy(randomLandDirNear(a.dir, 0.2, false, 10) ?? a.dir)
+  }
+  if (moveToward(a, a.target, 0.55, dt)) {
+    a.target.copy(randomLandDirNear(a.dir, 0.15, false, 10) ?? a.dir)
+  }
+}
+
+function shoot(a: Alien, at: Vector3) {
+  state.zaps.push({ from: surfacePoint(a.dir, new Vector3(), 0.25), to: surfacePoint(at, new Vector3(), 0.2), t: 0 })
+  sfx('zap')
+}
+
+function updateInvaders(dt: number) {
+  const villagers = state.followers.filter((f) => !f.lost).length
+  if (!state.ufos.length && !state.aliens.length && villagers >= 3 && state.time > 90) {
+    state.invasionTimer -= dt
+    if (state.invasionTimer <= 0) {
+      state.invasionTimer = Math.max(100, 220 - state.ageIndex * 25) + Math.random() * 60
+      launchInvasion()
+    }
+  }
+
+  for (const u of state.ufos) updateUfo(u, dt)
+  for (const a of state.aliens) updateAlien(a, dt)
+
+  for (const f of state.followers) {
+    if (f.job || f.scared > 0) continue
+    const near = nearestAlien(f.dir, 0.8)
+    if (near) {
+      f.scared = 2
+      f.scareFrom.copy(near.dir)
+    }
+  }
+
+  const beforeAliens = state.aliens.length
+  state.aliens = state.aliens.filter((a) => {
+    if (a.hp > 0) return true
+    sfx('alienDie')
+    emit('spark', a.dir, 16, 0.06, 0.2)
+    state.stats.aliensSlain++
+    state.faith += 4
+    return false
+  })
+  const beforeUfos = state.ufos.length
+  state.ufos = state.ufos.filter((u) => {
+    if (u.hp <= 0) {
+      destroyUfo(u)
+      return false
+    }
+    return !(u.phase === 'leave' && u.height > 30)
+  })
+
+  for (const z of state.zaps) z.t += dt
+  if (state.zaps.length) state.zaps = state.zaps.filter((z) => z.t < 0.3)
+
+  if (beforeAliens !== state.aliens.length || beforeUfos !== state.ufos.length) notify(true)
+
+  if (invasionActive && !state.ufos.length && !state.aliens.length) {
+    invasionActive = false
+    state.stats.invasionsRepelled++
+    state.faith += 15
+    sfx('challengeWon')
+    say('The invasion is over! Your people are safe. +15 faith', 'good')
+  }
+}
+
+export function invasionStatus() {
+  if (state.ufos.length || state.aliens.length) {
+    return { active: true, ufos: state.ufos.length, aliens: state.aliens.length }
+  }
+  return { active: false, ufos: 0, aliens: 0, eta: Math.max(0, Math.ceil(state.invasionTimer)) }
+}
+
 // ---------- simulation ----------
 
 const tmpAxis = new Vector3()
 const tmpVec = new Vector3()
+const detourAxis = new Vector3()
 
-function moveToward(f: Follower, target: Vector3, speed: number, dt: number, avoidWater: boolean) {
-  const angle = f.dir.angleTo(target)
+const DETOURS = [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8]
+
+/**
+ * Walk across the surface toward `target`. Walkers never step into water: when the
+ * direct step would get wet they try angled detours along the coast, and stop if none work.
+ * Returns true when arrived or blocked.
+ */
+function moveToward(w: { dir: Vector3 }, target: Vector3, speed: number, dt: number, _avoidWater = true) {
+  const angle = w.dir.angleTo(target)
   const step = (speed * dt) / PLANET_RADIUS
   if (angle <= step || angle < 1e-4) {
-    f.dir.copy(target)
+    if (!isLand(target)) return true
+    w.dir.copy(target)
     return true
   }
-  tmpAxis.crossVectors(f.dir, target).normalize()
-  tmpVec.copy(f.dir).applyAxisAngle(tmpAxis, step)
-  if (avoidWater && !isLand(tmpVec)) return true
-  f.dir.copy(tmpVec).normalize()
-  return false
+  tmpAxis.crossVectors(w.dir, target).normalize()
+  for (const turn of DETOURS) {
+    detourAxis.copy(tmpAxis)
+    if (turn !== 0) detourAxis.applyAxisAngle(w.dir, turn)
+    tmpVec.copy(w.dir).applyAxisAngle(detourAxis, step)
+    if (isLand(tmpVec)) {
+      w.dir.copy(tmpVec).normalize()
+      return false
+    }
+  }
+  return true
 }
 
 function setWander(f: Follower, range = 0.3) {
@@ -1047,6 +1816,7 @@ function updateFollowers(dt: number) {
     f.heat = Math.max(0, f.heat - (f.sunned ? 0 : 1.6) * dt)
     f.sunned = false
     f.jump = Math.max(0, f.jump - dt)
+    f.hp = Math.min(100, f.hp + 4 * dt)
     f.happiness = Math.max(0, Math.min(100, f.happiness - dt * (state.fearTimer > 0 ? 0.35 : 1.1)))
 
     if (f.heat > 7 && f.burning === 0) {
@@ -1081,6 +1851,10 @@ function updateFollowers(dt: number) {
     }
 
     f.timer -= dt
+    if (f.job) {
+      runJob(f, dt)
+      continue
+    }
     switch (f.state) {
       case 'idle':
         decide(f)
@@ -1106,15 +1880,7 @@ function updateFollowers(dt: number) {
         if (surfaceDist(f.dir, b.dir) > 0.32) {
           moveToward(f, f.target, f.speed * 1.2, dt, false)
         } else {
-          const rate = b.type === 'temple' ? 0.035 : b.type === 'farm' ? 0.18 : 0.1
-          b.progress = Math.min(1, b.progress + rate * dt)
-          if (Math.random() < dt * 2) emit('spark', b.dir, 1, 0.1, 0.2)
-          if (b.progress >= 1) {
-            say(`A new ${b.type} stands complete!`, 'good')
-            sfx('complete')
-            emit('faith', b.dir, 24, 0.2, 0.3)
-            notify(true)
-          }
+          advanceConstruction(b, buildRate(b), dt)
         }
         break
       }
@@ -1202,6 +1968,12 @@ function applyCursor(dt: number) {
       }
     }
     for (const b of state.buildings) if (surfaceDist(b.dir, dir) < SUN_RADIUS) b.sunned = true
+    for (const a of state.aliens) {
+      if (surfaceDist(a.dir, dir) < SUN_RADIUS) {
+        a.hp -= 9 * dt
+        a.hurt = 0.1
+      }
+    }
   } else if (tool === 'rain') {
     for (const f of state.followers) {
       if (surfaceDist(f.dir, dir) < RAIN_RADIUS) {
@@ -1694,6 +2466,8 @@ export function tick(dt: number) {
   updateBuildings(dt)
   updateTrees(dt)
   updateTornadoes(dt)
+  updateInvaders(dt)
+  updateTetherPreview()
   updateEffects(dt)
   updateEconomy(dt)
   updateObjectives()
