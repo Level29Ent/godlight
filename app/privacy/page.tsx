@@ -157,8 +157,11 @@ const sections: Section[] = [
     title: 'Contact',
     body: (
       <p>
-        For privacy questions or to delete your data, use the support contact listed on Godlight&apos;s App Store or Google Play
-        page.
+  For privacy questions or to delete your data, email us at{' '}
+  <a href="mailto:info@level29ent.com" className="underline underline-offset-4 hover:opacity-80">
+  info@level29ent.com
+  </a>
+  .
       </p>
     ),
   },
