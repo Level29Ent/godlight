@@ -18,6 +18,7 @@ import {
 } from 'three'
 import { surfacePoint } from '@/lib/game/planet'
 import { facingQuaternion, surfaceQuaternion } from '@/lib/game/orient'
+import { isSupporter } from '@/lib/game/monetization'
 import { beginTether, pokeFollower, state, type Follower, type JobKind } from '@/lib/game/store'
 
 const MAX = 160
@@ -105,6 +106,7 @@ export function Followers() {
     const t = clock.elapsedTime
     const list = state.followers
     const n = Math.min(list.length, MAX)
+    const supporter = isSupporter()
     const { obj, q, p, c, local, rot, out } = tmp
     const selected = state.tether.followerId
 
@@ -166,7 +168,7 @@ export function Followers() {
       refs.head.current!.setMatrixAt(i, base)
       refs.hair.current!.setMatrixAt(i, base)
       refs.hit.current!.setMatrixAt(i, base)
-      refs.halo.current!.setMatrixAt(i, praying ? base : ZERO)
+      refs.halo.current!.setMatrixAt(i, praying || supporter ? base : ZERO)
 
       if (f.job || f.id === selected) {
         local.makeRotationY(t * 2 + f.phase)

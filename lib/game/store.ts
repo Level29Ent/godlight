@@ -260,6 +260,7 @@ export interface GameState {
   particleQueue: ParticleRequest[]
   cursor: { dir: Vector3 | null; down: boolean; pressed: boolean }
   fearTimer: number
+  boostTimer: number
   birthTimer: number
   hintTimer: number
   ageIndex: number
@@ -316,6 +317,7 @@ function createState(): GameState {
     particleQueue: [],
     cursor: { dir: null, down: false, pressed: false },
     fearTimer: 0,
+    boostTimer: 0,
     birthTimer: 6,
     hintTimer: 0,
     ageIndex: 0,
@@ -601,6 +603,17 @@ export function startGame() {
   say('Your followers await a sign. Shine upon them.', 'good')
 }
 
+export function grantFaith(amount: number) {
+  state.faith += amount
+  if (state.followers.length) emit('faith', pick(state.followers).dir, 24, 0.05, 1)
+  notify(true)
+}
+
+export function grantBoost(seconds: number) {
+  state.boostTimer = Math.max(state.boostTimer, 0) + seconds
+  notify(true)
+}
+
 export function resetGame() {
   const fresh = createState()
   Object.assign(state, fresh)
@@ -631,6 +644,7 @@ export interface SaveData {
   stone?: number
   rocks?: { d: V3; sz: number; y: number }[]
   invasionTimer?: number
+  boostTimer?: number
   followers: { id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number; j?: [JobKind, V3] }[]
   buildings: { t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
   trees: { d: V3; sz: number; k: 0 | 1; c: number; y: number }[]
@@ -664,6 +678,7 @@ export function exportSave(): SaveData {
     stone: round(s.stone),
     rocks: s.rocks.map((r) => ({ d: packV3(r.dir), sz: round(r.size), y: round(r.yaw) })),
     invasionTimer: round(Math.max(s.invasionTimer, 45)),
+    boostTimer: round(s.boostTimer),
     followers: s.followers.map((f) => ({
       id: f.id,
       d: packV3(f.dir),
@@ -709,6 +724,7 @@ export function importSave(raw: unknown): boolean {
   state.wood = Math.max(0, num(data.wood, 10))
   state.stone = Math.max(0, num(data.stone, 4))
   state.invasionTimer = Math.max(45, num(data.invasionTimer, 150))
+  state.boostTimer = Math.max(0, Math.min(3600, num(data.boostTimer)))
 
   if (data.stats && typeof data.stats === 'object') {
     for (const key of Object.keys(fresh.stats) as (keyof Stats)[]) {
@@ -2454,9 +2470,11 @@ function updateEconomy(dt: number) {
       rate += (f.happiness / 100) * 0.12
     }
   }
+  if (state.boostTimer > 0) rate *= 2
   state.faithRate = rate
   state.faith += rate * dt
   state.fearTimer = Math.max(0, state.fearTimer - dt)
+  state.boostTimer = Math.max(0, state.boostTimer - dt)
 
   state.birthTimer -= dt
   if (state.birthTimer <= 0) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Activity,
   CloudRain,
@@ -25,7 +25,9 @@ import { AGES, TOOLS, TOOL_BY_ID, type Tool } from '@/lib/game/config'
 import { BUILD_COST, cancelTether, costText, setTool, useGame, type BuildingType } from '@/lib/game/store'
 import { toggleMusic, toggleSfx, unlockAudio, useAudioSettings } from '@/lib/game/audio'
 import { initNativeApp } from '@/lib/game/native'
-import { Axe, Pickaxe, Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
+import { initMonetization, useMonetization } from '@/lib/game/monetization'
+import { Axe, Crown, Gift, Pickaxe, Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
+import { BoostBadge, GiftsMenu, useRewardCooldown } from './gifts-menu'
 import { cn } from '@/lib/utils'
 import { ChallengeCard, ObjectivePanel } from './quests'
 
@@ -51,8 +53,15 @@ const TOOL_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'z', 'x', '
 
 export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
   const started = useGame((s) => s.started)
+  const [giftsOpen, setGiftsOpen] = useState(false)
+  const openGifts = useCallback(() => {
+    unlockAudio()
+    setGiftsOpen(true)
+  }, [])
+  const closeGifts = useCallback(() => setGiftsOpen(false), [])
   useEffect(() => {
     initNativeApp()
+    initMonetization()
   }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -79,7 +88,7 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
           <ChallengeCard />
         </div>
         <div className="flex flex-col items-end gap-2">
-          <StatsPanel onOpenSaves={onOpenSaves} />
+          <StatsPanel onOpenSaves={onOpenSaves} onOpenGifts={openGifts} />
         </div>
       </header>
       <div className="flex flex-1 flex-col items-center gap-2 pt-2">
@@ -88,6 +97,7 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
       <Messages />
       <TetherHint />
       <Toolbar />
+      <GiftsMenu open={giftsOpen} onClose={closeGifts} />
     </div>
   )
 }
@@ -125,7 +135,7 @@ function AgePanel() {
   )
 }
 
-function StatsPanel({ onOpenSaves }: { onOpenSaves: () => void }) {
+function StatsPanel({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; onOpenGifts: () => void }) {
   const faith = useGame((s) => Math.floor(s.faith))
   const rate = useGame((s) => Math.round(s.faithRate * 10) / 10)
   const pop = useGame((s) => s.pop)
@@ -167,7 +177,8 @@ function StatsPanel({ onOpenSaves }: { onOpenSaves: () => void }) {
         </span>
       </div>
       {fear && <p className="text-[11px] font-medium text-[#ff9a7a]">Your people pray in fear</p>}
-      <AudioToggles onOpenSaves={onOpenSaves} />
+      <BoostBadge />
+      <AudioToggles onOpenSaves={onOpenSaves} onOpenGifts={onOpenGifts} />
     </Panel>
   )
 }
@@ -226,12 +237,33 @@ function TetherHint() {
   )
 }
 
-function AudioToggles({ onOpenSaves }: { onOpenSaves: () => void }) {
+function GiftsButton({ onOpenGifts }: { onOpenGifts: () => void }) {
+  const cooldown = useRewardCooldown()
+  const { supporter } = useMonetization()
+  return (
+    <button
+      type="button"
+      onClick={onOpenGifts}
+      aria-label="Heavenly gifts"
+      title="Heavenly gifts"
+      className="relative flex h-7 items-center gap-1.5 rounded-full border border-[#f5c451]/30 px-2.5 text-[11px] font-medium text-[#f5c451] transition hover:bg-[#f5c451]/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]"
+    >
+      {supporter ? <Crown className="size-3.5" aria-hidden="true" /> : <Gift className="size-3.5" aria-hidden="true" />}
+      Gifts
+      {cooldown === 0 && (
+        <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-[#9be38a]" aria-hidden="true" />
+      )}
+    </button>
+  )
+}
+
+function AudioToggles({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; onOpenGifts: () => void }) {
   const { music, sfx } = useAudioSettings()
   const base =
     'flex size-7 items-center justify-center rounded-full border border-white/10 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]'
   return (
     <div className="mt-1 flex items-center gap-1.5">
+      <GiftsButton onOpenGifts={onOpenGifts} />
       <button
         type="button"
         onClick={onOpenSaves}
