@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { Color, Vector3 } from 'three'
 import { AGES, ROBE_COLORS, SKIN_COLORS, TOOL_BY_ID, type Tool } from './config'
 import { setLoop, sfx, type SfxName } from './audio'
+import { requestNotificationPermission } from './native'
 import { OBJECTIVES } from './objectives'
 import {
   PLANET_RADIUS,
@@ -596,6 +597,7 @@ export function startGame() {
   resetGame()
   state.started = true
   sfx('start')
+  requestNotificationPermission()
   say('Your followers await a sign. Shine upon them.', 'good')
 }
 

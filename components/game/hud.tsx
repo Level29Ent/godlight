@@ -24,6 +24,7 @@ import {
 import { AGES, TOOLS, TOOL_BY_ID, type Tool } from '@/lib/game/config'
 import { BUILD_COST, cancelTether, costText, setTool, useGame, type BuildingType } from '@/lib/game/store'
 import { toggleMusic, toggleSfx, unlockAudio, useAudioSettings } from '@/lib/game/audio'
+import { initNativeApp } from '@/lib/game/native'
 import { Axe, Pickaxe, Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ChallengeCard, ObjectivePanel } from './quests'
@@ -50,6 +51,9 @@ const TOOL_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'z', 'x', '
 
 export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
   const started = useGame((s) => s.started)
+  useEffect(() => {
+    initNativeApp()
+  }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null

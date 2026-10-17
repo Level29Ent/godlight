@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { haptic } from './native'
 
 export type SfxName =
   | 'select'
@@ -253,6 +254,7 @@ function bell(note: number, start: number, gain = 0.12, dur = 1.2) {
 // ---------- sound effects ----------
 
 export function sfx(name: SfxName) {
+  haptic(name)
   if (!ctx || !settings.sfx) return
   const now = ctx.currentTime
   const gap = MIN_GAP[name]
