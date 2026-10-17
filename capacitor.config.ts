@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   backgroundColor: '#060817',
   server: {
     // The game uses server actions, auth, and cloud saves, so the native shell loads the deployed app.
-    url: 'https://godfinger.vercel.app',
+    url: 'https://godlight.level29ent.com',
     cleartext: false,
     errorPath: 'index.html',
   },

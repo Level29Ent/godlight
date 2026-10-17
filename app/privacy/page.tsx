@@ -15,7 +15,7 @@ const sections: Section[] = [
     title: 'Who we are',
     body: (
       <p>
-        Godlight is a god game you can play on the web at godfinger.vercel.app and in our iOS and Android apps. This policy
+        Godlight is a god game you can play on the web at godlight.level29ent.com and in our iOS and Android apps. This policy
         explains what information we collect when you play, why we collect it, and the choices you have.
       </p>
     ),
