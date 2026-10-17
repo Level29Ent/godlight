@@ -30,5 +30,17 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/icons/maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
       { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
+    screenshots: [
+      { label: 'Warm your followers with sunlight on a tiny low-poly world' },
+      { label: 'Call down a sunbeam to bless the land' },
+      { label: 'Bring rain to water farms and grow forests' },
+      { label: 'Harvests bring feasts and faith' },
+    ].map(({ label }, index) => ({
+      src: `/screenshots/gameplay-${index + 1}.webp`,
+      sizes: '1280x649',
+      type: 'image/webp',
+      form_factor: 'wide' as const,
+      label,
+    })),
   }
 }
