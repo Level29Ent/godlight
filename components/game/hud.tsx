@@ -29,7 +29,7 @@ import { initMonetization, useMonetization } from '@/lib/game/monetization'
 import { Axe, Crown, Gift, Pickaxe, Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
 import { BoostBadge, GiftsMenu, useRewardCooldown } from './gifts-menu'
 import { cn } from '@/lib/utils'
-import { ChallengeCard, ObjectivePanel } from './quests'
+import { QuestStack } from './quests'
 
 const ICONS: Record<Tool, typeof Sun> = {
   hand: Hand,
@@ -82,10 +82,9 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:p-5">
       <header className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5 sm:gap-2">
           <AgePanel />
-          <ObjectivePanel />
-          <ChallengeCard />
+          <QuestStack />
         </div>
         <div className="flex flex-col items-end gap-2">
           <StatsPanel onOpenSaves={onOpenSaves} onOpenGifts={openGifts} />
@@ -122,13 +121,13 @@ function AgePanel() {
   const prev = AGES[ageIndex].pop
   const progress = next ? Math.min(1, (pop - prev) / (next.pop - prev)) : 1
   return (
-    <Panel className="w-44 px-4 py-3 sm:w-60">
-      <p className="font-display text-[10px] uppercase tracking-[0.25em] text-[#f5c451]/80">Godlight</p>
-      <h2 className="font-display mt-0.5 text-base font-semibold sm:text-lg">{AGES[ageIndex].name}</h2>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Progress to next age">
+    <Panel className="w-40 rounded-xl px-3 py-2 sm:w-60 sm:rounded-2xl sm:px-4 sm:py-3">
+      <p className="font-display hidden text-[10px] uppercase tracking-[0.25em] text-[#f5c451]/80 sm:block">Godlight</p>
+      <h2 className="font-display text-sm font-semibold sm:mt-0.5 sm:text-lg">{AGES[ageIndex].name}</h2>
+      <div className="mt-1.5 h-1 sm:mt-2 sm:h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Progress to next age">
         <div className="h-full rounded-full bg-gradient-to-r from-[#f5c451] to-[#ffe9a8] transition-all duration-500" style={{ width: `${progress * 100}%` }} />
       </div>
-      <p className="mt-1.5 text-[11px] text-[#f4ecd8]/60">
+      <p className="mt-1 text-[10px] text-[#f4ecd8]/60 sm:mt-1.5 sm:text-[11px]">
         {next ? `${next.name} at ${next.pop} followers` : 'Your people have reached glory'}
       </p>
     </Panel>
@@ -146,14 +145,15 @@ function StatsPanel({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; onO
   const stone = useGame((s) => Math.floor(s.stone))
 
   return (
-    <Panel className="flex flex-col items-end gap-2 px-4 py-3">
-      <div className="flex items-center gap-2">
-        <Sparkles className="size-5 text-[#f5c451]" aria-hidden="true" />
-        <span className="font-display text-2xl font-semibold tabular-nums sm:text-3xl">{faith}</span>
+    <Panel className="flex flex-col items-end gap-1.5 rounded-xl px-3 py-2 sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3">
+      <div className="flex items-baseline gap-1.5 sm:items-center sm:gap-2">
+        <Sparkles className="size-4 self-center text-[#f5c451] sm:size-5" aria-hidden="true" />
+        <span className="font-display text-xl font-semibold tabular-nums sm:text-3xl">{faith}</span>
         <span className="sr-only">faith</span>
+        <span className="text-[10px] tabular-nums text-[#f5c451]/80 sm:hidden">+{rate.toFixed(1)}/s</span>
       </div>
-      <p className="-mt-1.5 text-[11px] tabular-nums text-[#f5c451]/80">+{rate.toFixed(1)} faith / sec</p>
-      <div className="flex items-center gap-4 text-sm tabular-nums">
+      <p className="-mt-1.5 hidden text-[11px] tabular-nums text-[#f5c451]/80 sm:block">+{rate.toFixed(1)} faith / sec</p>
+      <div className="flex items-center gap-2.5 text-xs tabular-nums sm:gap-4 sm:text-sm [&_svg]:size-3.5 sm:[&_svg]:size-4">
         <span className="flex items-center gap-1.5" title="Followers / housing">
           <Users className="size-4 text-[#9ecbff]" aria-hidden="true" />
           {pop}
@@ -227,7 +227,8 @@ function TetherHint() {
   return (
     <p
       className={cn(
-        'mx-auto mb-2 max-w-md rounded-full px-3 py-1 text-center text-xs backdrop-blur-sm',
+        'mx-auto mb-2 max-w-md rounded-full px-3 py-1 text-center text-[11px] backdrop-blur-sm sm:text-xs',
+        !active && 'hidden sm:block',
         active && preview && !preview.kind ? 'bg-[#3a0f0f]/70 text-[#ffb3a8]' : 'bg-black/30 text-[#f4ecd8]/75',
       )}
       aria-live="polite"
@@ -246,10 +247,10 @@ function GiftsButton({ onOpenGifts }: { onOpenGifts: () => void }) {
       onClick={onOpenGifts}
       aria-label="Heavenly gifts"
       title="Heavenly gifts"
-      className="relative flex h-7 items-center gap-1.5 rounded-full border border-[#f5c451]/30 px-2.5 text-[11px] font-medium text-[#f5c451] transition hover:bg-[#f5c451]/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]"
+      className="relative flex h-7 min-w-7 items-center justify-center gap-1.5 rounded-full border border-[#f5c451]/30 px-1.5 text-[11px] sm:px-2.5 font-medium text-[#f5c451] transition hover:bg-[#f5c451]/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]"
     >
       {supporter ? <Crown className="size-3.5" aria-hidden="true" /> : <Gift className="size-3.5" aria-hidden="true" />}
-      Gifts
+      <span className="hidden sm:inline">Gifts</span>
       {cooldown === 0 && (
         <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-[#9be38a]" aria-hidden="true" />
       )}
@@ -262,17 +263,17 @@ function AudioToggles({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; o
   const base =
     'flex size-7 items-center justify-center rounded-full border border-white/10 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]'
   return (
-    <div className="mt-1 flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5 sm:mt-1">
       <GiftsButton onOpenGifts={onOpenGifts} />
       <button
         type="button"
         onClick={onOpenSaves}
         aria-label="Save or load world"
         title="Save / load"
-        className={cn(base, 'w-auto gap-1.5 px-2.5 text-[11px] font-medium text-[#f5c451]')}
+        className={cn(base, 'gap-1.5 text-[11px] font-medium text-[#f5c451] sm:w-auto sm:px-2.5')}
       >
         <Save className="size-3.5" aria-hidden="true" />
-        Save
+        <span className="hidden sm:inline">Save</span>
       </button>
       <button
         type="button"
@@ -330,10 +331,21 @@ function Toolbar() {
   const ageIndex = useGame((s) => s.ageIndex)
   const faith = useGame((s) => Math.floor(s.faith))
   const info = TOOL_BY_ID[tool]
+  const [hintVisible, setHintVisible] = useState(true)
+  useEffect(() => {
+    setHintVisible(true)
+    const id = window.setTimeout(() => setHintVisible(false), 4000)
+    return () => window.clearTimeout(id)
+  }, [tool])
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <p className="max-w-md rounded-full bg-black/40 px-4 py-1.5 text-center text-xs text-[#f4ecd8]/85 backdrop-blur-sm sm:text-sm">
+      <p
+        className={cn(
+          'max-w-[90vw] rounded-full bg-black/40 px-3 py-1 text-center text-[11px] leading-snug text-[#f4ecd8]/85 backdrop-blur-sm transition-opacity duration-500 sm:block sm:max-w-md sm:px-4 sm:py-1.5 sm:text-sm sm:opacity-100',
+          hintVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      >
         {info.hint}
       </p>
       <Panel className="max-w-full overflow-x-auto p-1.5">
@@ -356,7 +368,7 @@ function Toolbar() {
                   locked && 'opacity-45',
                 )}
               >
-                <span className="absolute left-1.5 top-1 text-[9px] font-medium uppercase opacity-50">{TOOL_KEYS[i]}</span>
+                <span className="absolute left-1.5 top-1 hidden text-[9px] font-medium uppercase opacity-50 sm:inline">{TOOL_KEYS[i]}</span>
                 <span
                   className={cn(
                     'absolute right-1.5 top-1.5 size-1.5 rounded-full',

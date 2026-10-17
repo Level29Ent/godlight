@@ -1,6 +1,7 @@
 'use client'
 
-import { Crown, Hourglass, LocateFixed, ScrollText, Trophy } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, Crown, Hourglass, LocateFixed, ScrollText, Trophy } from 'lucide-react'
 import { OBJECTIVES } from '@/lib/game/objectives'
 import { focusCamera } from '@/lib/game/camera'
 import { state, useGame } from '@/lib/game/store'
@@ -32,6 +33,50 @@ function Bar({ value, tone = 'gold' }: { value: number; tone?: 'gold' | 'sky' | 
         style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }}
       />
     </div>
+  )
+}
+
+export function QuestStack() {
+  const [open, setOpen] = useState(false)
+  const index = useGame((s) => s.objectiveIndex)
+  const objective = OBJECTIVES[index]
+  const raw = useGame((s) => (objective ? objective.progress(s) : 0))
+  const challengeActive = useGame((s) => s.challenge?.status === 'active')
+  const timeLeft = useGame((s) => Math.max(0, Math.ceil(s.challenge?.timeLeft ?? 0)))
+  const progress = objective ? Math.min(objective.target, Math.floor(raw)) : 0
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls="quest-cards"
+        className="pointer-events-auto flex w-40 items-center gap-2 rounded-full border border-white/10 bg-[#0c1028]/60 px-3 py-1.5 text-left text-[#f4ecd8] backdrop-blur-md sm:hidden"
+      >
+        <ScrollText className="size-3.5 shrink-0 text-[#f5c451]" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
+          {objective ? objective.title : 'All fulfilled'}
+        </span>
+        {objective && (
+          <span className="text-[10px] tabular-nums text-[#f4ecd8]/60">
+            {progress}/{objective.target}
+          </span>
+        )}
+        {challengeActive && (
+          <span className="flex items-center gap-0.5 text-[10px] font-semibold tabular-nums text-[#9ecbff]">
+            <Trophy className="size-3 animate-pulse" aria-hidden="true" />
+            {timeLeft}s
+          </span>
+        )}
+        <ChevronDown className={cn('size-3.5 shrink-0 opacity-60 transition-transform', open && 'rotate-180')} aria-hidden="true" />
+        <span className="sr-only">{open ? 'Hide objectives' : 'Show objectives'}</span>
+      </button>
+      <div id="quest-cards" className={cn('flex-col gap-2', open ? 'flex' : 'hidden sm:flex')}>
+        <ObjectivePanel />
+        <ChallengeCard />
+      </div>
+    </>
   )
 }
 
