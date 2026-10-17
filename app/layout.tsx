@@ -1,7 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Cinzel, Geist } from 'next/font/google'
-import { ServiceWorkerRegister } from '@/components/service-worker-register'
 import './globals.css'
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
@@ -52,7 +51,15 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
-        {process.env.NODE_ENV === 'production' && <ServiceWorkerRegister />}
+        {process.env.NODE_ENV === 'production' && (
+          <script
+            id="sw-register"
+            dangerouslySetInnerHTML={{
+              __html:
+                "if (typeof navigator.serviceWorker !== 'undefined') { navigator.serviceWorker.register('/sw.js', { scope: '/' }) }",
+            }}
+          />
+        )}
       </body>
     </html>
   )
