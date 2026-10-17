@@ -39,6 +39,15 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
   },
+  user: {
+    deleteUser: {
+      enabled: true,
+      // game_save has no FK to user, so saves must be removed explicitly.
+      beforeDelete: async (user) => {
+        await db.delete(gameSave).where(eq(gameSave.userId, user.id))
+      },
+    },
+  },
   trustedOrigins: [
     ...(process.env.NODE_ENV === 'development'
       ? [

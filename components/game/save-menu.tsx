@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import useSWR, { useSWRConfig } from 'swr'
 import { CloudUpload, FolderOpen, Link2, Loader2, LogOut, RotateCcw, Trash2, Users, Sparkles, X } from 'lucide-react'
 import { deleteSave, listSaves, loadGame, saveGame } from '@/app/actions/saves'
-import { ensureGuest, signIn, signOut, signUp, useSession } from '@/lib/auth-client'
+import { authClient, ensureGuest, signIn, signOut, signUp, useSession } from '@/lib/auth-client'
 import { AUTOSAVE_INTERVAL_MS, AUTOSAVE_SLOT, SLOT_COUNT, type SaveSummary } from '@/lib/game/save-slots'
 import { exportSave, importSave, say, setPaused, useGame } from '@/lib/game/store'
 import { sfx } from '@/lib/game/audio'
@@ -316,7 +316,91 @@ function SlotList({
       <p className="mt-4 text-[11px] leading-relaxed text-[#f4ecd8]/45">
         Your world autosaves every minute while you play. The game is paused while this menu is open.
       </p>
+      {!guest && <DeleteAccount />}
     </div>
+  )
+}
+
+function DeleteAccount() {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { mutate } = useSWRConfig()
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 text-[11px] text-[#ff9a7a]/70 underline-offset-4 transition hover:text-[#ff9a7a] hover:underline"
+      >
+        Delete account
+      </button>
+    )
+  }
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const password = String(new FormData(e.currentTarget).get('password') ?? '')
+    setError(null)
+    setLoading(true)
+    const res = await authClient.deleteUser({ password })
+    setLoading(false)
+    if (res.error) {
+      setError('That password did not match. Your account was not deleted.')
+      sfx('error')
+      return
+    }
+    await mutate((key) => Array.isArray(key) && key[0] === 'saves', undefined, { revalidate: false })
+    say('Your account and cloud saves were deleted.', 'info')
+    await ensureGuest()
+  }
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#ff9a7a]/30 bg-[#ff9a7a]/5 p-3.5"
+    >
+      <p className="text-xs leading-relaxed text-[#f4ecd8]/80">
+        This permanently deletes your account and every cloud save. It cannot be undone. Supporter Pack purchases stay
+        with your Apple or Google account and can be restored.
+      </p>
+      <label className="flex flex-col gap-1.5 text-xs text-[#f4ecd8]/70">
+        Confirm with your password
+        <input
+          name="password"
+          type="password"
+          required
+          autoComplete="current-password"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-[#f4ecd8] outline-none transition focus:border-[#ff9a7a]/60 focus:bg-white/10"
+        />
+      </label>
+      {error && (
+        <p role="alert" className="text-xs text-[#ff9a7a]">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false)
+            setError(null)
+          }}
+          className="flex-1 rounded-full border border-white/10 px-4 py-2.5 text-xs text-[#f4ecd8]/80 transition hover:bg-white/10"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#ff9a7a] px-4 py-2.5 text-xs font-semibold text-[#2a0d06] transition hover:bg-[#ffb39a] disabled:opacity-60"
+        >
+          {loading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+          Delete forever
+        </button>
+      </div>
+    </form>
   )
 }
 

@@ -120,9 +120,10 @@ const sections: Section[] = [
     title: 'Keeping and deleting your data',
     body: (
       <p>
-        We keep your account and saves for as long as your account exists. Unused guest accounts may be removed. You can ask us
-        to delete your account and all of its saves at any time using the contact details below, and we will do so within 30
-        days.
+        We keep your account and saves for as long as your account exists. Unused guest accounts may be removed. You can delete
+        your account and all of its cloud saves at any time from inside the game: open Chronicles (the save menu) and choose
+        Delete account. Deletion is immediate and permanent. You can also ask us to delete your data using the contact details
+        below, and we will do so within 30 days.
       </p>
     ),
   },
