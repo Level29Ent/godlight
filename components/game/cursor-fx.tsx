@@ -54,6 +54,7 @@ export function CursorFX() {
   const rain = useRef<Group>(null)
   const preview = useRef<Mesh>(null)
   const vis = useRef({ sun: 0, rain: 0 })
+  const warmFrames = useRef(0)
   const ringMat = useMemo(
     () => new MeshBasicMaterial({ transparent: true, depthTest: false, toneMapped: false, side: DoubleSide }),
     [],
@@ -69,12 +70,31 @@ export function CursorFX() {
     const dir = cursor.dir
     const g = anchor.current
     if (!g) return
+    if (warmFrames.current < 30) {
+      // Draw the sun, rain cloud and preview hidden inside the planet for a few frames so
+      // their shaders compile up front instead of stalling on the first use of each power.
+      warmFrames.current++
+      g.visible = true
+      g.position.set(0, 0, 0)
+      g.scale.setScalar(0.001)
+      if (sun.current) sun.current.visible = true
+      if (rain.current) rain.current.visible = true
+      if (preview.current) preview.current.visible = true
+      return
+    }
+    if (warmFrames.current === 30) {
+      warmFrames.current++
+      g.scale.setScalar(1)
+    }
     const active = started && dir && tool !== 'hand'
     g.visible = !!active
     const v = vis.current
     v.sun += ((active && tool === 'sun' && cursor.down ? 1 : 0) - v.sun) * Math.min(1, dt * 8)
     v.rain += ((active && tool === 'rain' && cursor.down ? 1 : 0) - v.rain) * Math.min(1, dt * 8)
-    if (!active || !dir) return
+    if (!active || !dir) {
+      if (sunLight.current) sunLight.current.intensity = 0
+      return
+    }
 
     surfacePoint(dir, g.position, 0.04)
     surfaceQuaternion(dir, 0, g.quaternion)
@@ -105,7 +125,10 @@ export function CursorFX() {
       sun.current.scale.setScalar(v.sun)
       sun.current.rotation.y = t * 0.5
     }
-    if (sunLight.current) sunLight.current.intensity = v.sun * 18
+    if (sunLight.current) {
+      sunLight.current.intensity = v.sun * 18
+      surfacePoint(dir, sunLight.current.position, 1.6)
+    }
     if (rain.current) {
       rain.current.visible = v.rain > 0.01
       rain.current.scale.setScalar(0.3 + v.rain * 0.7)
@@ -113,6 +136,7 @@ export function CursorFX() {
   })
 
   return (
+    <>
     <group ref={anchor} visible={false}>
       <mesh ref={ring} material={ringMat} rotation={[-Math.PI / 2, 0, 0]} renderOrder={10} raycast={() => null}>
         <ringGeometry args={[0.92, 1, 64, 1, 0, Math.PI * 1.85]} />
@@ -141,12 +165,15 @@ export function CursorFX() {
             toneMapped={false}
           />
         </mesh>
-        <pointLight ref={sunLight} position={[0, 1.6, 0]} color="#ffcf7a" distance={5} decay={1.5} intensity={0} />
       </group>
       <group ref={rain} visible={false}>
         <RainCloud />
       </group>
     </group>
+    {/* Kept outside the toggled groups: hiding a light changes the scene's light count,
+        which recompiles every lit material and freezes the frame. */}
+    <pointLight ref={sunLight} color="#ffcf7a" distance={5} decay={1.5} intensity={0} />
+    </>
   )
 }
 

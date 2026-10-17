@@ -14,7 +14,9 @@ import {
   PointLight,
   Quaternion,
   Color,
+  Vector3,
 } from 'three'
+import { Warmup } from './warmup'
 import { surfaceQuaternion } from '@/lib/game/orient'
 import { PLANET_RADIUS, surfacePoint } from '@/lib/game/planet'
 import {
@@ -49,7 +51,67 @@ export function Effects() {
       ))}
       <Ghosts />
       <Flash />
+      <MeteorLights />
+      <Warmup>
+        <LightningBolt bolt={WARM_BOLT} />
+        <MeteorMesh meteor={WARM_METEOR} />
+        {WARM_WAVES.map((w) => (
+          <ShockwaveMesh key={w.id} wave={w} />
+        ))}
+        <TornadoMesh tornado={WARM_TORNADO} />
+      </Warmup>
     </group>
+  )
+}
+
+const WARM_BOLT: Bolt = { id: -1, points: [[0, 5, 0], [0.2, 5.5, 0], [0, 6, 0]], t: 0 }
+const WARM_METEOR: Meteor = { id: -1, from: new Vector3(0, 9, 0), to: new Vector3(0, 6, 0), dir: new Vector3(0, 1, 0), t: 0.5, duration: 1e9 }
+const WARM_WAVES: Shockwave[] = (['fire', 'gold', 'earth', 'life'] as const).map((tone, i) => ({
+  id: -1 - i,
+  pos: new Vector3(0, 6, 0),
+  normal: new Vector3(0, 1, 0),
+  t: 0.3,
+  size: 1,
+  tone,
+}))
+const WARM_TORNADO: Tornado = { id: -1, dir: new Vector3(0, 1, 0), target: new Vector3(0, 1, 0), t: 1, life: 1e9 }
+
+const MAX_METEOR_LIGHTS = 4
+
+/**
+ * A fixed pool of meteor lights. Mounting a light per meteor changes the scene's light
+ * count, which forces every lit material to recompile and freezes the game for a moment.
+ */
+function MeteorLights() {
+  const lights = useRef<(PointLight | null)[]>([])
+  useFrame(() => {
+    for (let i = 0; i < MAX_METEOR_LIGHTS; i++) {
+      const light = lights.current[i]
+      if (!light) continue
+      const m = state.meteors[i]
+      if (m) {
+        meteorPosition(m, light.position)
+        light.intensity = 40
+      } else {
+        light.intensity = 0
+      }
+    }
+  })
+  return (
+    <>
+      {Array.from({ length: MAX_METEOR_LIGHTS }, (_, i) => (
+        <pointLight
+          key={i}
+          ref={(el) => {
+            lights.current[i] = el
+          }}
+          color="#ff7a2f"
+          intensity={0}
+          distance={8}
+          decay={1.5}
+        />
+      ))}
+    </>
   )
 }
 
@@ -99,7 +161,6 @@ function MeteorMesh({ meteor }: { meteor: Meteor }) {
         <icosahedronGeometry args={[0.55, 2]} />
         <meshBasicMaterial color={[3, 1.2, 0.3]} transparent opacity={0.35} blending={AdditiveBlending} toneMapped={false} depthWrite={false} />
       </mesh>
-      <pointLight color="#ff7a2f" intensity={40} distance={8} decay={1.5} />
     </group>
   )
 }

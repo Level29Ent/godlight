@@ -6,6 +6,7 @@ import { AdditiveBlending, Color, Group, Mesh, MeshStandardMaterial, Quaternion,
 import { surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
 import { maxHp, state, useGame, type Building } from '@/lib/game/store'
+import { Warmup } from './warmup'
 
 export function Buildings() {
   const buildings = useGame((s) => s.buildings)
@@ -14,9 +15,30 @@ export function Buildings() {
       {buildings.map((b) => (
         <BuildingMesh key={b.id} b={b} />
       ))}
+      <Warmup>
+        {WARM_BUILDINGS.map((b) => (
+          <BuildingMesh key={b.id} b={b} />
+        ))}
+      </Warmup>
     </group>
   )
 }
+
+const WARM_BUILDINGS: Building[] = (['house', 'farm', 'temple', 'well'] as const).map((type, i) => ({
+  id: -1 - i,
+  type,
+  dir: new Vector3(0, 1, 0),
+  yaw: 0,
+  progress: 0.5,
+  hp: maxHp(type),
+  burning: 0,
+  moisture: 0.5,
+  growth: 0.5,
+  sunned: false,
+  builders: 0,
+  short: [],
+  warnedAt: 0,
+}))
 
 const CHARCOAL = new Color('#2d2826')
 
