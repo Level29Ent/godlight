@@ -68,6 +68,12 @@ function TitleScreen({ onOpenSaves }: { onOpenSaves: () => void }) {
       </button>
       <ContinueButton onOpenSaves={onOpenSaves} />
       <p className="mt-4 text-[11px] text-[#f4ecd8]/45">Drag the stars to spin the world · Hold on land to use powers · Keys 1–8 switch tools</p>
+      <a
+        href="/privacy"
+        className="mt-3 text-[11px] text-[#f4ecd8]/45 underline underline-offset-4 hover:text-[#f4ecd8]/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5c451]"
+      >
+        Privacy Policy
+      </a>
     </div>
   )
 }
