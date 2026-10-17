@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   backgroundColor: '#060817',
   server: {
     // The game uses server actions, auth, and cloud saves, so the native shell loads the deployed app.
-    url: 'https://godlight.level29ent.com',
+    url: 'https://godlight.app',
     cleartext: false,
     errorPath: 'index.html',
   },

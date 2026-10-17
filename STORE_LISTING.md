@@ -11,9 +11,9 @@ Copy-paste text and answers for App Store Connect and Google Play Console.
 | Bundle ID / package name | `app.vercel.godfinger` (permanent after first upload — change before uploading if you want `com.level29ent.godlight`) |
 | Version | 1.0 (build 1) |
 | Category | Games → Simulation (secondary: Strategy) |
-| Support URL | https://godlight.level29ent.com/support |
+| Support URL | https://godlight.app/support |
 | Marketing / website URL | https://level29ent.com |
-| Privacy policy URL | https://godlight.level29ent.com/privacy |
+| Privacy policy URL | https://godlight.app/privacy |
 | Support email | info@level29ent.com |
 | Price | Free, with in-app purchase |
 | In-app product | Supporter Pack, non-consumable, $3.99, product ID `supporter_pack` |
@@ -113,7 +113,7 @@ Godlight is a god simulation game. Players can start instantly as a guest; an ac
 - Shared with third parties: Device IDs and app interactions with Google AdMob for advertising
 - Encrypted in transit: Yes
 - Players can request deletion: Yes, in the app (Saves → Delete account) or by emailing info@level29ent.com
-- Account deletion URL: https://godlight.level29ent.com/support
+- Account deletion URL: https://godlight.app/support
 
 **Other declarations**
 - Contains ads: Yes

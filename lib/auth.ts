@@ -60,7 +60,8 @@ export const auth = betterAuth({
       : []),
     ...(process.env.NODE_ENV === 'production'
       ? [
-          'https://godlight.level29ent.com',
+          'https://godlight.app',
+          'https://www.godlight.app',
           'https://godfinger.vercel.app',
           ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
           ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
