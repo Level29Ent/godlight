@@ -26,7 +26,7 @@ import { BUILD_COST, cancelTether, costText, setTool, useGame, type BuildingType
 import { toggleMusic, toggleSfx, unlockAudio, useAudioSettings } from '@/lib/game/audio'
 import { Axe, Pickaxe, Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CameraPad, ChallengeCard, ObjectivePanel } from './quests'
+import { ChallengeCard, ObjectivePanel } from './quests'
 
 const ICONS: Record<Tool, typeof Sun> = {
   hand: Hand,
@@ -67,7 +67,7 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
 
   if (!started) return null
   return (
-    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 sm:p-5">
+    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:p-5">
       <header className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-2">
           <AgePanel />
@@ -76,7 +76,6 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
         </div>
         <div className="flex flex-col items-end gap-2">
           <StatsPanel onOpenSaves={onOpenSaves} />
-          <CameraPad />
         </div>
       </header>
       <div className="flex flex-1 flex-col items-center gap-2 pt-2">

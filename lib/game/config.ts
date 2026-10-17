@@ -23,7 +23,7 @@ export interface ToolInfo {
 }
 
 export const TOOLS: ToolInfo[] = [
-  { id: 'hand', label: 'Touch', cost: 0, unlockAge: 0, kind: 'hand', hint: 'Drag space to spin the world. Tap a follower to bless them.' },
+  { id: 'hand', label: 'Touch', cost: 0, unlockAge: 0, kind: 'hand', hint: 'Grab the world and drag to spin it. Pinch to zoom. Tap a follower to bless them.' },
   { id: 'sun', label: 'Sunlight', cost: 0, unlockAge: 0, kind: 'power', hint: 'Hold on the land to warm and cheer followers. Too long and things catch fire.' },
   { id: 'rain', label: 'Rain', cost: 0, unlockAge: 0, kind: 'power', hint: 'Hold to water farms, grow forests, and douse fires.' },
   { id: 'grove', label: 'Grove', cost: 15, unlockAge: 0, kind: 'power', hint: 'Raise a sacred forest in an instant. Followers nearby are delighted.' },

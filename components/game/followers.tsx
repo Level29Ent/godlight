@@ -1,7 +1,8 @@
 'use client'
 
 import { useLayoutEffect, useMemo, useRef } from 'react'
-import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
+import { claimPointer } from '@/lib/game/camera'
 import {
   BoxGeometry,
   CapsuleGeometry,
@@ -39,14 +40,12 @@ export const JOB_COLORS: Record<JobKind, Color> = {
   guard: new Color(0.5, 1.1, 2.2),
 }
 
-type Controls = { enabled: boolean } | null
 
 function isMoving(f: Follower) {
   return f.state === 'wander' || f.state === 'pilgrim' || f.state === 'flee' || f.burning > 0 || f.scared > 0
 }
 
 export function Followers() {
-  const controls = useThree((s) => s.controls) as Controls
   const refs = {
     legL: useRef<InstancedMesh>(null),
     legR: useRef<InstancedMesh>(null),
@@ -210,7 +209,7 @@ export function Followers() {
     e.stopPropagation()
     pokeFollower(e.instanceId)
     beginTether(e.instanceId)
-    if (controls) controls.enabled = false
+    claimPointer()
   }
 
   const part = (ref: React.RefObject<InstancedMesh | null>, geo: THREE_GEO, roughness = 0.7) => (

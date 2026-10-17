@@ -1,25 +1,10 @@
 'use client'
 
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  Crosshair,
-  Crown,
-  Hourglass,
-  LocateFixed,
-  Minus,
-  Plus,
-  Repeat2,
-  ScrollText,
-  Trophy,
-} from 'lucide-react'
+import { Crown, Hourglass, LocateFixed, ScrollText, Trophy } from 'lucide-react'
 import { OBJECTIVES } from '@/lib/game/objectives'
-import { focusCamera, setButtonAxis, type CameraAxis } from '@/lib/game/camera'
+import { focusCamera } from '@/lib/game/camera'
 import { state, useGame } from '@/lib/game/store'
 import { cn } from '@/lib/utils'
-import { flipView, recenterView } from './camera-rig'
 
 function Shell({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
@@ -176,99 +161,6 @@ export function ChallengeCard() {
           </div>
         </>
       )}
-    </Shell>
-  )
-}
-
-function HoldButton({
-  axis,
-  value,
-  label,
-  children,
-  className,
-}: {
-  axis: CameraAxis
-  value: number
-  label: string
-  children: React.ReactNode
-  className?: string
-}) {
-  const release = () => setButtonAxis(axis, 0)
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onPointerDown={(e) => {
-        e.currentTarget.setPointerCapture(e.pointerId)
-        setButtonAxis(axis, value)
-      }}
-      onPointerUp={release}
-      onPointerCancel={release}
-      onLostPointerCapture={release}
-      onContextMenu={(e) => e.preventDefault()}
-      className={cn(
-        'flex size-9 touch-none select-none items-center justify-center rounded-xl text-[#f4ecd8] transition-colors hover:bg-white/10 active:bg-[#f5c451] active:text-[#1a1406]',
-        className,
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
-export function CameraPad() {
-  const flipped = useGame((s) => s.viewDir.dot(state.followers[0]?.dir ?? s.viewDir) < 0)
-  return (
-    <Shell className="flex flex-col items-center gap-1 p-1.5">
-      <p className="px-1 pt-0.5 text-[9px] uppercase tracking-[0.2em] text-[#f4ecd8]/50">View</p>
-      <div className="grid grid-cols-3 grid-rows-3">
-        <span />
-        <HoldButton axis="pitch" value={-1} label="Tilt up (W)">
-          <ChevronUp className="size-5" aria-hidden="true" />
-        </HoldButton>
-        <span />
-        <HoldButton axis="yaw" value={-1} label="Rotate left (A)">
-          <ChevronLeft className="size-5" aria-hidden="true" />
-        </HoldButton>
-        <button
-          type="button"
-          onClick={recenterView}
-          aria-label="Recenter on your people (R)"
-          title="Recenter on your people (R)"
-          className="flex size-9 items-center justify-center rounded-xl text-[#f5c451] transition-colors hover:bg-white/10"
-        >
-          <Crosshair className="size-4" aria-hidden="true" />
-        </button>
-        <HoldButton axis="yaw" value={1} label="Rotate right (D)">
-          <ChevronRight className="size-5" aria-hidden="true" />
-        </HoldButton>
-        <span />
-        <HoldButton axis="pitch" value={1} label="Tilt down (S)">
-          <ChevronDown className="size-5" aria-hidden="true" />
-        </HoldButton>
-        <span />
-      </div>
-      <div className="flex w-full justify-between border-t border-white/10 pt-1">
-        <HoldButton axis="zoom" value={-1} label="Zoom in (E)" className="size-8">
-          <Plus className="size-4" aria-hidden="true" />
-        </HoldButton>
-        <HoldButton axis="zoom" value={1} label="Zoom out (Q)" className="size-8">
-          <Minus className="size-4" aria-hidden="true" />
-        </HoldButton>
-      </div>
-      <button
-        type="button"
-        onClick={flipView}
-        title="Flip to the far side (F)"
-        className={cn(
-          'flex w-full items-center justify-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-medium transition-colors',
-          flipped ? 'bg-[#9ecbff]/20 text-[#c3e0ff] hover:bg-[#9ecbff]/30' : 'bg-white/10 hover:bg-white/20',
-        )}
-      >
-        <Repeat2 className="size-3.5" aria-hidden="true" />
-        Flip
-      </button>
     </Shell>
   )
 }

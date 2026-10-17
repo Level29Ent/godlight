@@ -1,43 +1,41 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { useThree, type ThreeEvent } from '@react-three/fiber'
+import { type ThreeEvent } from '@react-three/fiber'
 import { AdditiveBlending, BackSide, Color } from 'three'
+import { claimPointer } from '@/lib/game/camera'
 import { createPlanetGeometry, OCEAN_RADIUS, PLANET_RADIUS } from '@/lib/game/planet'
 import { pressCursor, releaseCursor, setCursor, state, tetherClick } from '@/lib/game/store'
 
-type Controls = { enabled: boolean } | null
-
 export function Planet() {
   const geometry = useMemo(() => createPlanetGeometry(44), [])
-  const controls = useThree((s) => s.controls) as Controls
 
   useEffect(() => {
-    const up = () => {
-      releaseCursor()
-      if (controls) controls.enabled = true
-    }
+    const up = () => releaseCursor()
     window.addEventListener('pointerup', up)
     window.addEventListener('pointercancel', up)
     return () => {
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
     }
-  }, [controls])
+  }, [])
 
   const onMove = (e: ThreeEvent<PointerEvent>) => {
     setCursor(e.point.clone().normalize())
   }
 
   const onDown = (e: ThreeEvent<PointerEvent>) => {
-    if (!state.started) return
+    if (!state.started || e.nativeEvent.button !== 0) return
     if (state.tool === 'hand') {
-      if (tetherClick(e.point.clone().normalize())) e.stopPropagation()
+      if (tetherClick(e.point.clone().normalize())) {
+        e.stopPropagation()
+        claimPointer()
+      }
       return
     }
     e.stopPropagation()
+    claimPointer()
     pressCursor(e.point.clone().normalize())
-    if (controls) controls.enabled = false
   }
 
   const onOut = () => {
