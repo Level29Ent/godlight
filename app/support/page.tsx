@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Support — Godlight',
-  description: 'Get help with Godlight: saves, accounts, purchases, controls, and how to contact Level 29 Interactive.',
+  description: 'Get help with Godlight: saves, accounts, purchases, controls, and how to contact Level 29 Entertainment.',
 }
 
 const SUPPORT_EMAIL = 'info@level29ent.com'
@@ -100,7 +100,7 @@ export default function SupportPage() {
           <p className="font-display text-xs uppercase tracking-[0.4em] text-[#f5c451]/80">Godlight</p>
           <h1 className="font-display mt-3 text-balance text-4xl font-semibold sm:text-5xl">Support</h1>
           <p className="mt-3 text-pretty text-[15px] leading-relaxed text-[#f4ecd8]/70">
-            Godlight is a god game by Level 29 Interactive. Shape a living planet, guide your followers, and grow their faith
+            Godlight is a god game by Level 29 Entertainment. Shape a living planet, guide your followers, and grow their faith
             from the first village to a thriving world.
           </p>
         </header>
@@ -113,7 +113,7 @@ export default function SupportPage() {
             Need help?
           </h2>
           <p className="text-pretty text-[15px] leading-relaxed text-[#f4ecd8]/80">
-            Email us and we will get back to you, usually within two business days. Please include your device model and a short
+            Email us and we will get back to you in a timely manner. Please include your device model and a short
             description of the problem.
           </p>
           <a
