@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Cinzel, Geist } from 'next/font/google'
+import { ServiceWorkerRegister } from '@/components/service-worker-register'
 import './globals.css'
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
   title: 'Godlight — Tend a Tiny World',
   description: 'A god game inspired by Godfinger. Bless your followers with sunlight, nurture crops with rain, and wield lightning on a beautiful 3D planet.',
   generator: 'v0.app',
+  applicationName: 'Godlight',
+  appleWebApp: { capable: true, title: 'Godlight', statusBarStyle: 'black-translucent' },
   icons: {
     icon: [
       {
@@ -49,6 +52,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
+        {process.env.NODE_ENV === 'production' && <ServiceWorkerRegister />}
       </body>
     </html>
   )
