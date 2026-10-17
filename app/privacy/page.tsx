@@ -160,9 +160,18 @@ const sections: Section[] = [
   For privacy questions or to delete your data, email us at{' '}
   <a href="mailto:info@level29ent.com" className="underline underline-offset-4 hover:opacity-80">
   info@level29ent.com
+  </a>{' '}
+  or visit{' '}
+  <a
+  href="https://level29ent.com"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="underline underline-offset-4 hover:opacity-80"
+  >
+  level29ent.com
   </a>
   .
-      </p>
+  </p>
     ),
   },
 ]
