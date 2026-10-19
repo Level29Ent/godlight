@@ -125,9 +125,11 @@ Godlight is a god simulation game. Players can start instantly as a guest; an ac
 ## Graphics checklist
 
 **Apple**
-- iPhone 6.9" screenshots (1320 × 2868), 3 to 10 images, required
-- iPad 13" screenshots (2064 × 2752), required if the app runs on iPad
+- iPhone 6.9" screenshots (1320 × 2868): ready in `resources/app-store/iphone-6.9in-1320x2868/` (7 images, upload in numbered order)
+- iPhone 6.5" screenshots (1284 × 2778): ready in `resources/app-store/iphone-6.5in-1284x2778/` (optional; Apple scales 6.9" if omitted)
+- iPad screenshots: not needed. The Xcode target is iPhone-only (`TARGETED_DEVICE_FAMILY = 1`); iPads still run it in iPhone mode
 - App icon 1024 × 1024, no transparency (from `resources/icon.png`)
+- Regenerate screenshots: `scripts/make-store-screenshots.py` (Pillow + Cinzel font)
 
 **Google**
 - App icon 512 × 512 PNG
