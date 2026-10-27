@@ -20,6 +20,10 @@ import {
   Skull,
   Smile,
   Wand2,
+  Sprout,
+  Castle,
+  Rainbow,
+  Moon,
 } from 'lucide-react'
 import { AGES, TOOLS, TOOL_BY_ID, type Tool } from '@/lib/game/config'
 import { BUILD_COST, cancelTether, costText, setTool, useGame, type BuildingType } from '@/lib/game/store'
@@ -45,11 +49,14 @@ const ICONS: Record<Tool, typeof Sun> = {
   quake: Activity,
   meteor: Flame,
   tornado: Tornado,
+  bounty: Sprout,
+  monument: Castle,
+  aurora: Rainbow,
 }
 
 const TOOL_DESTRUCTIVE = new Set<Tool>(['lightning', 'quake', 'meteor', 'tornado'])
 
-const TOOL_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'z', 'x', 'c']
+const TOOL_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'z', 'x', 'c', 'v', 'b', 'g']
 
 export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
   const started = useGame((s) => s.started)
@@ -120,9 +127,23 @@ function AgePanel() {
   const next = AGES[ageIndex + 1]
   const prev = AGES[ageIndex].pop
   const progress = next ? Math.min(1, (pop - prev) / (next.pop - prev)) : 1
+  const isNight = useGame((s) => s.night > 0.5)
+  const aurora = useGame((s) => Math.ceil(s.auroraTimer))
   return (
     <Panel className="w-40 rounded-xl px-3 py-2 sm:w-60 sm:rounded-2xl sm:px-4 sm:py-3">
-      <p className="font-display hidden text-[10px] uppercase tracking-[0.25em] text-[#f5c451]/80 sm:block">Godlight</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-display hidden text-[10px] uppercase tracking-[0.25em] text-[#f5c451]/80 sm:block">Godlight</p>
+        <span
+          className={cn(
+            'flex items-center gap-1 text-[10px] tabular-nums',
+            aurora > 0 ? 'text-[#8ff5c8]' : isNight ? 'text-[#a9b8ff]' : 'text-[#f5c451]/80',
+          )}
+          title={isNight ? 'Night: prayers yield 25% more faith' : 'Day'}
+        >
+          {aurora > 0 ? <Rainbow className="size-3" aria-hidden="true" /> : isNight ? <Moon className="size-3" aria-hidden="true" /> : <Sun className="size-3" aria-hidden="true" />}
+          {aurora > 0 ? `Aurora ${aurora}s` : isNight ? 'Night +25%' : 'Day'}
+        </span>
+      </div>
       <h2 className="font-display text-sm font-semibold sm:mt-0.5 sm:text-lg">{AGES[ageIndex].name}</h2>
       <div className="mt-1.5 h-1 sm:mt-2 sm:h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Progress to next age">
         <div className="h-full rounded-full bg-gradient-to-r from-[#f5c451] to-[#ffe9a8] transition-all duration-500" style={{ width: `${progress * 100}%` }} />

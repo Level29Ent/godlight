@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { Color, Vector3 } from 'three'
-import { AGES, ROBE_COLORS, SKIN_COLORS, TOOL_BY_ID, type Tool } from './config'
+import { AGES, ROBE_COLORS, SKIN_COLORS, TOOL_BY_ID, nightAmount, type Tool } from './config'
 import { setLoop, sfx, type SfxName } from './audio'
 import { requestNotificationPermission } from './native'
 import { OBJECTIVES } from './objectives'
@@ -97,7 +97,7 @@ export interface TetherState {
   preview: TetherPreview | null
 }
 
-export type ChallengeKind = 'wildfire' | 'pilgrims' | 'festival' | 'boom' | 'harvest'
+export type ChallengeKind = 'wildfire' | 'pilgrims' | 'festival' | 'boom' | 'harvest' | 'drought' | 'devotion'
 
 export interface Challenge {
   id: number
@@ -138,9 +138,13 @@ export interface Stats {
   jobsAssigned: number
   woodChopped: number
   stoneMined: number
+  bounties: number
+  monuments: number
+  auroras: number
+  nightPrayers: number
 }
 
-export type BuildingType = 'house' | 'farm' | 'temple' | 'well'
+export type BuildingType = 'house' | 'farm' | 'temple' | 'well' | 'monument'
 
 export type Material = 'wood' | 'stone'
 
@@ -149,6 +153,7 @@ export const BUILD_COST: Record<BuildingType, Record<Material, number>> = {
   farm: { wood: 5, stone: 0 },
   well: { wood: 2, stone: 8 },
   temple: { wood: 14, stone: 14 },
+  monument: { wood: 8, stone: 24 },
 }
 
 export interface Rock {
@@ -285,6 +290,9 @@ export interface GameState {
   zaps: Zap[]
   invasionTimer: number
   tether: TetherState
+  auroraTimer: number
+  night: number
+  wasNight: boolean
 }
 
 const SUN_RADIUS = 1.1
@@ -351,6 +359,10 @@ function createState(): GameState {
       jobsAssigned: 0,
       woodChopped: 0,
       stoneMined: 0,
+      bounties: 0,
+      monuments: 0,
+      auroras: 0,
+      nightPrayers: 0,
     },
     objectiveIndex: 0,
     challenge: null,
@@ -364,6 +376,9 @@ function createState(): GameState {
     zaps: [],
     invasionTimer: 150,
     tether: { followerId: null, dragging: false, preview: null },
+    auroraTimer: 0,
+    night: 0,
+    wasNight: false,
   }
 }
 
@@ -400,7 +415,7 @@ function makeFollower(dir: Vector3): Follower {
 }
 
 export function maxHp(type: BuildingType) {
-  return type === 'temple' ? 220 : type === 'well' ? 140 : 100
+  return type === 'monument' ? 260 : type === 'temple' ? 220 : type === 'well' ? 140 : 100
 }
 
 function makeBuilding(type: BuildingType, dir: Vector3, complete = false): Building {
@@ -645,6 +660,7 @@ export interface SaveData {
   rocks?: { d: V3; sz: number; y: number }[]
   invasionTimer?: number
   boostTimer?: number
+  auroraTimer?: number
   followers: { id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number; j?: [JobKind, V3] }[]
   buildings: { t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
   trees: { d: V3; sz: number; k: 0 | 1; c: number; y: number }[]
@@ -679,6 +695,7 @@ export function exportSave(): SaveData {
     rocks: s.rocks.map((r) => ({ d: packV3(r.dir), sz: round(r.size), y: round(r.yaw) })),
     invasionTimer: round(Math.max(s.invasionTimer, 45)),
     boostTimer: round(s.boostTimer),
+    auroraTimer: round(s.auroraTimer),
     followers: s.followers.map((f) => ({
       id: f.id,
       d: packV3(f.dir),
@@ -702,7 +719,7 @@ export function exportSave(): SaveData {
   }
 }
 
-const BUILDING_TYPES: BuildingType[] = ['house', 'farm', 'temple', 'well']
+const BUILDING_TYPES: BuildingType[] = ['house', 'farm', 'temple', 'well', 'monument']
 const JOB_KINDS: JobKind[] = ['chop', 'mine', 'farm', 'build', 'pray', 'fight', 'guard']
 
 export function importSave(raw: unknown): boolean {
@@ -725,6 +742,9 @@ export function importSave(raw: unknown): boolean {
   state.stone = Math.max(0, num(data.stone, 4))
   state.invasionTimer = Math.max(45, num(data.invasionTimer, 150))
   state.boostTimer = Math.max(0, Math.min(3600, num(data.boostTimer)))
+  state.auroraTimer = Math.max(0, Math.min(30, num(data.auroraTimer)))
+  state.night = nightAmount(state.time)
+  state.wasNight = state.night > 0.5
 
   if (data.stats && typeof data.stats === 'object') {
     for (const key of Object.keys(fresh.stats) as (keyof Stats)[]) {
@@ -1013,6 +1033,63 @@ function castGrove(dir: Vector3) {
   say(planted > 0 ? `A sacred grove of ${planted} trees springs from the earth.` : 'The land here is already lush.', 'good')
 }
 
+const BOUNTY_RADIUS = 1.8
+
+function castBounty(dir: Vector3) {
+  if (!isLand(dir)) {
+    say('Abundance needs soil. Choose land.')
+    return
+  }
+  if (!spend(TOOL_BY_ID.bounty.cost)) return
+  state.stats.bounties++
+  addShockwave(dir, BOUNTY_RADIUS * 1.1, 'life')
+  emit('leaf', dir, 70, 0.6, 0.2)
+  emit('faith', dir, 30, 0.5, 0.2)
+  let farms = 0
+  let revived = 0
+  for (const b of state.buildings) {
+    if (b.type !== 'farm' || b.progress < 1 || surfaceDist(b.dir, dir) > BOUNTY_RADIUS) continue
+    b.moisture = 1
+    b.growth = Math.min(0.999, b.growth + 0.65)
+    farms++
+  }
+  for (const t of state.trees) {
+    if (surfaceDist(t.dir, dir) > BOUNTY_RADIUS) continue
+    if (t.charred > 0 || t.burning > 0) {
+      t.charred = 0
+      t.burning = 0
+      t.heat = 0
+      revived++
+    }
+    t.size = Math.min(1.1, t.size + 0.3)
+  }
+  for (const f of state.followers) {
+    if (!f.lost && surfaceDist(f.dir, dir) < BOUNTY_RADIUS + 0.4) {
+      f.happiness = Math.min(100, f.happiness + 10)
+      f.jump = 0.4
+    }
+  }
+  const parts = [farms ? `${farms} field${farms > 1 ? 's' : ''} ripen` : '', revived ? `${revived} tree${revived > 1 ? 's' : ''} reborn` : '']
+    .filter(Boolean)
+    .join(', ')
+  say(parts ? `Bounty! ${parts}.` : 'The land blooms with fresh life.', 'good')
+}
+
+const AURORA_DURATION = 30
+
+function castAurora() {
+  if (!spend(TOOL_BY_ID.aurora.cost)) return
+  state.stats.auroras++
+  state.auroraTimer = AURORA_DURATION
+  for (const f of state.followers) {
+    if (f.lost) continue
+    f.happiness = Math.min(100, f.happiness + 30)
+    f.jump = 0.6
+    emit('faith', f.dir, 4, 0.04, 0.5)
+  }
+  say('An aurora dances across the sky. The whole world rejoices!', 'good')
+}
+
 function castBlessing(dir: Vector3) {
   if (!spend(TOOL_BY_ID.blessing.cost)) return
   state.stats.blessings++
@@ -1192,7 +1269,7 @@ function placeBuilding(type: BuildingType, dir: Vector3) {
     return
   }
   for (const b of state.buildings) {
-    if (surfaceDist(b.dir, dir) < (type === 'temple' || b.type === 'temple' ? 0.8 : 0.55)) {
+    if (surfaceDist(b.dir, dir) < (type === 'temple' || b.type === 'temple' || type === 'monument' || b.type === 'monument' ? 0.8 : 0.55)) {
       say('Too close to another building.')
       return
     }
@@ -2206,6 +2283,9 @@ const CAST_SFX: Partial<Record<Tool, SfxName>> = {
   blessing: 'blessing',
   quake: 'quake',
   tornado: 'tornado',
+  bounty: 'grove',
+  aurora: 'blessing',
+  monument: 'build',
   house: 'build',
   farm: 'build',
   temple: 'build',
@@ -2230,7 +2310,9 @@ function applyCursor(dt: number) {
     else if (tool === 'blessing') castBlessing(dir)
     else if (tool === 'quake') castQuake(dir)
     else if (tool === 'tornado') castTornado(dir)
-    else if (tool === 'house' || tool === 'farm' || tool === 'temple' || tool === 'well') placeBuilding(tool, dir)
+    else if (tool === 'bounty') castBounty(dir)
+    else if (tool === 'aurora') castAurora()
+    else if (tool === 'house' || tool === 'farm' || tool === 'temple' || tool === 'well' || tool === 'monument') placeBuilding(tool, dir)
     if (castSound) sfx(state.faith < faithBefore ? castSound : 'error')
   }
 
@@ -2354,6 +2436,12 @@ function updateBuildings(dt: number) {
         if (t.charred === 0 && t.size < 1 && surfaceDist(t.dir, b.dir) < 1.6) t.size = Math.min(1, t.size + 0.02 * dt)
       }
     }
+    if (b.type === 'monument' && b.progress >= 1) {
+      for (const f of state.followers) {
+        if (!f.lost && surfaceDist(f.dir, b.dir) < 2.4) f.happiness = Math.min(100, f.happiness + 1.4 * dt)
+      }
+      if (Math.random() < dt * 3) emit('faith', b.dir, 1, 0.06, 0.9)
+    }
     b.sunned = false
     if (b.hp <= 0) changed = true
   }
@@ -2453,28 +2541,40 @@ function updateStats() {
   state.stats.houses = houses
   state.stats.temples = temples
   state.stats.wells = done.filter((b) => b.type === 'well').length
+  state.stats.monuments = done.filter((b) => b.type === 'monument').length
   state.stats.farBuildings = done.filter((b) => b.dir.dot(startDir) < 0).length
 }
 
 function updateEconomy(dt: number) {
   updateStats()
   const fearMult = state.fearTimer > 0 ? 1.8 : 1
+  state.night = nightAmount(state.time)
+  const isNight = state.night > 0.5
+  if (isNight !== state.wasNight) {
+    state.wasNight = isNight
+    say(isNight ? 'Night falls. Prayers by moonlight carry 25% more faith.' : 'Dawn breaks over your world.', 'info')
+  }
+  const nightMult = 1 + state.night * 0.25
   let rate = 0
   for (const f of state.followers) {
     if (f.lost) continue
     if (f.state === 'pray' && f.burning === 0) {
-      const r = (0.35 + (f.happiness / 100) * 1.1) * (f.atTemple ? 2.6 : 1) * fearMult
+      const r = (0.35 + (f.happiness / 100) * 1.1) * (f.atTemple ? 2.6 : 1) * fearMult * nightMult
       rate += r
+      if (isNight) state.stats.nightPrayers += dt
       if (Math.random() < dt * r * 0.9) emit('faith', f.dir, 1, 0.02, 0.4)
     } else {
       rate += (f.happiness / 100) * 0.12
     }
   }
+  rate += state.stats.monuments * 1.5
+  if (state.auroraTimer > 0) rate *= 1.5
   if (state.boostTimer > 0) rate *= 2
   state.faithRate = rate
   state.faith += rate * dt
   state.fearTimer = Math.max(0, state.fearTimer - dt)
   state.boostTimer = Math.max(0, state.boostTimer - dt)
+  state.auroraTimer = Math.max(0, state.auroraTimer - dt)
 
   state.birthTimer -= dt
   if (state.birthTimer <= 0) {
@@ -2544,7 +2644,7 @@ function updateObjectives() {
 
 // ---------- challenges ----------
 
-const CHALLENGE_KINDS: ChallengeKind[] = ['wildfire', 'pilgrims', 'festival', 'boom', 'harvest']
+const CHALLENGE_KINDS: ChallengeKind[] = ['wildfire', 'pilgrims', 'festival', 'boom', 'harvest', 'drought', 'devotion']
 const CHALLENGE_RADIUS = 4.5
 
 function findFarLandDir() {
@@ -2640,6 +2740,34 @@ function createChallenge(kind: ChallengeKind): Challenge | null {
       return makeChallenge('harvest', 'Great Harvest', 'Bring in 2 harvests. Rain and sun make crops grow fast.', 70, 2, 45, {
         base: state.harvests,
       })
+    case 'drought': {
+      const farms = state.buildings.filter((b) => b.type === 'farm' && b.progress >= 1)
+      if (farms.length < 2) return null
+      for (const b of farms) b.moisture = 0
+      const target = Math.min(3, farms.length)
+      return makeChallenge(
+        'drought',
+        'Great Drought',
+        `The fields have cracked under a cruel sun. Soak ${target} farms with Rain before the crops wither.`,
+        50,
+        target,
+        55,
+        { dir: farms[0].dir.clone() },
+      )
+    }
+    case 'devotion': {
+      if (state.pop < 5) return null
+      const goal = Math.max(4, Math.ceil(state.faithRate * 1.4))
+      return makeChallenge(
+        'devotion',
+        'Night of Devotion',
+        `Raise faith income to ${goal}/s and hold it for 10 seconds. Temples and moonlit prayer help.`,
+        60,
+        10,
+        60,
+        { base: goal },
+      )
+    }
   }
 }
 
@@ -2672,6 +2800,10 @@ function finishChallenge(c: Challenge, won: boolean) {
   } else if (c.kind === 'wildfire') {
     for (const f of state.followers) f.happiness = Math.max(0, f.happiness - 20)
     say('The wildfire burned unchecked. Your people despair.', 'bad')
+  } else if (c.kind === 'drought') {
+    for (const b of state.buildings) if (b.type === 'farm') b.growth = 0
+    for (const f of state.followers) f.happiness = Math.max(0, f.happiness - 12)
+    say('The crops withered in the drought.', 'bad')
   } else if (c.kind === 'pilgrims') {
     state.followers = state.followers.filter((f) => !(f.lost && c.ids.includes(f.id)))
     say('The lost pilgrims wandered away into the wilds.', 'bad')
@@ -2728,6 +2860,12 @@ function updateChallenges(dt: number) {
       break
     case 'harvest':
       c.progress = state.harvests - c.base
+      break
+    case 'drought':
+      c.progress = state.buildings.filter((b) => b.type === 'farm' && b.progress >= 1 && b.moisture >= 0.85).length
+      break
+    case 'devotion':
+      if (state.faithRate >= c.base) c.progress += dt
       break
   }
 
