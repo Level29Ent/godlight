@@ -24,7 +24,7 @@ export function Buildings() {
   )
 }
 
-const WARM_BUILDINGS: Building[] = (['house', 'farm', 'temple', 'well'] as const).map((type, i) => ({
+const WARM_BUILDINGS: Building[] = (['house', 'farm', 'temple', 'well', 'monument'] as const).map((type, i) => ({
   id: -1 - i,
   type,
   dir: new Vector3(0, 1, 0),
@@ -74,11 +74,63 @@ function BuildingMesh({ b }: { b: Building }) {
         {b.type === 'house' && <House wall={wallMat} />}
         {b.type === 'temple' && <Temple wall={wallMat} b={b} />}
         {b.type === 'well' && <Well />}
+        {b.type === 'monument' && <Monument wall={wallMat} b={b} />}
       </group>
       {b.type === 'farm' && <Farm b={b} />}
       <group ref={scaffold}>
-        <Scaffold size={b.type === 'temple' ? 0.32 : b.type === 'farm' ? 0.22 : 0.14} height={b.type === 'farm' ? 0.06 : 0.3} />
+        <Scaffold
+          size={b.type === 'temple' ? 0.32 : b.type === 'farm' ? 0.22 : b.type === 'monument' ? 0.2 : 0.14}
+          height={b.type === 'farm' ? 0.06 : b.type === 'monument' ? 0.55 : 0.3}
+        />
       </group>
+    </group>
+  )
+}
+
+function Monument({ wall, b }: { wall: MeshStandardMaterial; b: Building }) {
+  const cap = useRef<Mesh>(null)
+  const halo = useRef<Mesh>(null)
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime
+    const live = b.progress >= 1 ? 1 : 0
+    if (cap.current) {
+      cap.current.rotation.y = t * 0.8
+      ;(cap.current.material as MeshStandardMaterial).emissiveIntensity = live * (1.6 + Math.sin(t * 2.2) * 0.5)
+    }
+    if (halo.current) {
+      halo.current.rotation.z = t * 0.6
+      halo.current.position.y = 0.72 + Math.sin(t * 1.5) * 0.02
+      ;(halo.current.material as { opacity: number }).opacity = live * (0.55 + Math.sin(t * 3) * 0.15)
+    }
+  })
+  return (
+    <group>
+      <mesh position={[0, 0.03, 0]} material={wall} castShadow receiveShadow>
+        <cylinderGeometry args={[0.24, 0.27, 0.06, 8]} />
+      </mesh>
+      <mesh position={[0, 0.08, 0]} material={wall} castShadow receiveShadow>
+        <cylinderGeometry args={[0.17, 0.2, 0.05, 8]} />
+      </mesh>
+      <mesh position={[0, 0.34, 0]} material={wall} castShadow>
+        <cylinderGeometry args={[0.045, 0.085, 0.48, 4]} />
+      </mesh>
+      <mesh ref={cap} position={[0, 0.63, 0]} castShadow>
+        <octahedronGeometry args={[0.07, 0]} />
+        <meshStandardMaterial color="#f5c451" emissive="#ffb43a" emissiveIntensity={1.6} metalness={0.6} roughness={0.25} flatShading />
+      </mesh>
+      <mesh ref={halo} position={[0, 0.72, 0]} rotation={[Math.PI / 2, 0, 0]} raycast={() => null}>
+        <torusGeometry args={[0.1, 0.008, 6, 24]} />
+        <meshBasicMaterial color="#ffd77a" transparent opacity={0.5} blending={AdditiveBlending} depthWrite={false} toneMapped={false} />
+      </mesh>
+      {[0, 1, 2, 3].map((i) => {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+        return (
+          <mesh key={i} position={[Math.cos(a) * 0.2, 0.13, Math.sin(a) * 0.2]} castShadow>
+            <boxGeometry args={[0.035, 0.05, 0.035]} />
+            <meshStandardMaterial color="#f5c451" emissive="#c98a1f" emissiveIntensity={0.4} metalness={0.5} roughness={0.35} />
+          </mesh>
+        )
+      })}
     </group>
   )
 }

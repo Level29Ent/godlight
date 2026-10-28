@@ -67,7 +67,7 @@ function TitleScreen({ onOpenSaves }: { onOpenSaves: () => void }) {
         Become a God
       </button>
       <ContinueButton onOpenSaves={onOpenSaves} />
-      <p className="mt-4 text-[11px] text-[#f4ecd8]/45">Drag the stars to spin the world · Hold on land to use powers · Keys 1–8 switch tools</p>
+      <p className="mt-4 text-[11px] text-[#f4ecd8]/45">Drag the stars to spin the world · Hold on land to use powers · Number keys and Z–G switch powers</p>
       <nav aria-label="Legal and support" className="mt-3 flex gap-4">
         <a
           href="/support"
