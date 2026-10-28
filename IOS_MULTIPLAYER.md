@@ -81,3 +81,30 @@ These do not replace two-session Postgres integration tests or iOS acceptance.
   warns about missing production auth URL/secret configuration.
 - Database migration, concurrent two-session gameplay, browser rendering, iPhone
   execution, AdMob consent/rewards, and App Store submission remain unverified.
+
+## Gameplay and compact HUD follow-up
+
+- World age, population, materials, happiness, saves, gifts and audio controls are
+  inside the collapsed **World & settings** disclosure. Faith remains visible.
+- Tasks are collapsed on desktop as well as mobile. The compact task button keeps
+  current-objective progress and any active challenge countdown visible.
+- The bottom power bar is replaced by a **Choose power** picker with a scrollable
+  four-column grid. Selecting a power closes the picker and restores toggle focus.
+  Escape closes task/power pickers; existing numeric power shortcuts still work.
+- Three recurring challenges join the existing random rotation after the tutorial:
+  Timber Trail (+12 net wood in 90s, 45 faith), Stonekeepers (+8 net stone in 90s,
+  45 faith), and Raise the Roof (finish an existing site in 100s, 60 faith).
+  Spending materials reduces stockpile-task progress. Construction requires an
+  unfinished site at challenge creation and cannot be satisfied with a later site.
+- Five objectives extend the original progression: wood and stone reserves,
+  20 harvests, three temples, and ten challenge victories. Existing objective
+  indexes stay unchanged for saved-game compatibility.
+
+Follow-up local checks: five Node tests cover duel rules, stockpile baselines,
+construction-site eligibility, new objective targets and original objective order.
+Visual/browser and iPhone touch checks are not performed in this environment.
+Before merging, check 320px/390px portrait and short landscape viewports: closed
+menus should leave the planet clear; open every menu, scroll all powers/settings,
+select a power, use Escape/Tab, save/load, and confirm touch input over panels does
+not trigger powers on the planet. Complete each new challenge and verify only one
+faith reward is paid; reload an older save and confirm the next objective is intact.

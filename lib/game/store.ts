@@ -1,3 +1,4 @@
+import { stockpileProgress, constructionProgress } from './task-progress'
 import { useSyncExternalStore } from 'react'
 import { Color, Vector3 } from 'three'
 import { AGES, ROBE_COLORS, SKIN_COLORS, TOOL_BY_ID, type Tool } from './config'
@@ -97,7 +98,7 @@ export interface TetherState {
   preview: TetherPreview | null
 }
 
-export type ChallengeKind = 'wildfire' | 'pilgrims' | 'festival' | 'boom' | 'harvest'
+export type ChallengeKind = 'wildfire' | 'pilgrims' | 'festival' | 'boom' | 'harvest' | 'lumber' | 'masonry' | 'builder'
 
 export interface Challenge {
   id: number
@@ -2544,7 +2545,7 @@ function updateObjectives() {
 
 // ---------- challenges ----------
 
-const CHALLENGE_KINDS: ChallengeKind[] = ['wildfire', 'pilgrims', 'festival', 'boom', 'harvest']
+const CHALLENGE_KINDS: ChallengeKind[] = ['wildfire', 'pilgrims', 'festival', 'boom', 'harvest', 'lumber', 'masonry', 'builder']
 const CHALLENGE_RADIUS = 4.5
 
 function findFarLandDir() {
@@ -2585,6 +2586,15 @@ function makeChallenge(
 
 function createChallenge(kind: ChallengeKind): Challenge | null {
   switch (kind) {
+    case 'lumber':
+      if (!state.trees.some(t => t.charred === 0)) return null
+      return makeChallenge('lumber', 'Timber Trail', 'Tether followers to trees and stockpile 12 more wood. Avoid spending wood until complete.', 90, 12, 45, { base: state.wood })
+    case 'masonry':
+      if (!state.rocks.length) return null
+      return makeChallenge('masonry', 'Stonekeepers', 'Tether followers to rocks and stockpile 8 more stone. Avoid spending stone until complete.', 90, 8, 45, { base: state.stone })
+    case 'builder':
+      if (!state.buildings.some(b => b.progress < 1)) return null
+      return makeChallenge('builder', 'Raise the Roof', 'Finish one of your current construction sites. Tether followers to the site to help.', 100, 1, 60, { ids: state.buildings.filter(b => b.progress < 1).map(b => b.id) })
     case 'wildfire': {
       const candidates = state.trees.filter((t) => t.charred === 0 && t.burning === 0 && t.dir.dot(state.viewDir) < -0.1)
       if (candidates.length < 3) return null
@@ -2704,6 +2714,16 @@ function updateChallenges(dt: number) {
   let failEarly = false
 
   switch (c.kind) {
+    case 'lumber':
+      c.progress = stockpileProgress(state.wood, c.base)
+      break
+    case 'masonry':
+      c.progress = stockpileProgress(state.stone, c.base)
+      break
+    case 'builder':
+      c.progress = constructionProgress(state.buildings, c.ids)
+      failEarly = !state.buildings.some(b => c.ids.includes(b.id))
+      break
     case 'wildfire': {
       const dir = c.dir!
       const burning =

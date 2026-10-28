@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ChevronDown, Crown, Hourglass, LocateFixed, ScrollText, Trophy } from 'lucide-react'
 import { OBJECTIVES } from '@/lib/game/objectives'
 import { focusCamera } from '@/lib/game/camera'
-import { state, useGame } from '@/lib/game/store'
+import { useGame } from '@/lib/game/store'
 import { cn } from '@/lib/utils'
 
 function Shell({ className, children }: { className?: string; children: React.ReactNode }) {
@@ -38,6 +38,7 @@ function Bar({ value, tone = 'gold' }: { value: number; tone?: 'gold' | 'sky' | 
 
 export function QuestStack() {
   const [open, setOpen] = useState(false)
+  const toggleRef = useRef<HTMLButtonElement>(null)
   const index = useGame((s) => s.objectiveIndex)
   const objective = OBJECTIVES[index]
   const raw = useGame((s) => (objective ? objective.progress(s) : 0))
@@ -46,13 +47,14 @@ export function QuestStack() {
   const progress = objective ? Math.min(objective.target, Math.floor(raw)) : 0
 
   return (
-    <>
+    <div className="relative" onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); toggleRef.current?.focus() } }}>
       <button
+        ref={toggleRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="quest-cards"
-        className="pointer-events-auto flex w-40 items-center gap-2 rounded-full border border-white/10 bg-[#0c1028]/60 px-3 py-1.5 text-left text-[#f4ecd8] backdrop-blur-md sm:hidden"
+        className="pointer-events-auto flex w-36 items-center gap-2 rounded-full border border-white/10 bg-[#0c1028]/60 min-h-11 px-3 py-2 text-left text-[#f4ecd8] backdrop-blur-md"
       >
         <ScrollText className="size-3.5 shrink-0 text-[#f5c451]" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
@@ -72,11 +74,11 @@ export function QuestStack() {
         <ChevronDown className={cn('size-3.5 shrink-0 opacity-60 transition-transform', open && 'rotate-180')} aria-hidden="true" />
         <span className="sr-only">{open ? 'Hide objectives' : 'Show objectives'}</span>
       </button>
-      <div id="quest-cards" className={cn('flex-col gap-2', open ? 'flex' : 'hidden sm:flex')}>
+      <div id="quest-cards" hidden={!open} className="pointer-events-auto absolute left-0 top-full z-10 mt-2 max-h-[50dvh] space-y-2 touch-pan-y overflow-y-auto">
         <ObjectivePanel />
         <ChallengeCard />
       </div>
-    </>
+    </div>
   )
 }
 
@@ -143,7 +145,7 @@ export function ChallengeCard() {
     )
   }
 
-  const shown = c.kind === 'festival' ? Math.floor(progress) : progress
+  const shown = Math.floor(progress)
   const ratio = c.duration ? timeLeft / c.duration : 0
   const urgent = status === 'active' && timeLeft <= 10
 
