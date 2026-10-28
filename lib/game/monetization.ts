@@ -91,12 +91,13 @@ function setSupporter(value: boolean) {
 
 async function initAds() {
   const { AdMob, AdmobConsentStatus } = await import('@capacitor-community/admob')
-  await AdMob.initialize()
-
-  const consent = await AdMob.requestConsentInfo()
+  let consent = await AdMob.requestConsentInfo()
   if (consent.status === AdmobConsentStatus.REQUIRED && consent.isConsentFormAvailable) {
-    await AdMob.showConsentForm()
+    consent = await AdMob.showConsentForm()
   }
+  if (!consent.canRequestAds) return
+
+  await AdMob.initialize()
   if (platform() === 'ios') {
     const { status } = await AdMob.trackingAuthorizationStatus()
     if (status === 'notDetermined') await AdMob.requestTrackingAuthorization()

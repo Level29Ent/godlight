@@ -146,4 +146,30 @@ export const OBJECTIVES: ObjectiveDef[] = [
     reward: 200,
     progress: (s) => (s.ageIndex >= 4 ? 35 : s.pop),
   },
+  // Append-only: saved games store objectiveIndex, so earlier objectives retain their positions.
+  {
+    id: 'wood-reserve', title: 'Forest Stewards',
+    desc: 'Stockpile 80 wood. Tether followers to healthy trees to gather it.',
+    target: 80, reward: 90, progress: (s) => s.wood,
+  },
+  {
+    id: 'stone-reserve', title: 'Foundations of an Empire',
+    desc: 'Stockpile 60 stone by assigning followers to rocks.',
+    target: 60, reward: 100, progress: (s) => s.stone,
+  },
+  {
+    id: 'harvest20', title: 'Bread for Every Soul',
+    desc: 'Celebrate 20 harvests. Expand your farms and keep them watered.',
+    target: 20, reward: 120, progress: (s) => s.harvests,
+  },
+  {
+    id: 'temples3', title: 'Sacred Skyline',
+    desc: 'Complete 3 temples for your growing civilization.',
+    target: 3, reward: 150, progress: (s) => s.stats.temples,
+  },
+  {
+    id: 'challenge10', title: 'Guardian of Worlds',
+    desc: 'Win 10 divine challenges.',
+    target: 10, reward: 200, progress: (s) => s.challengesWon,
+  },
 ]

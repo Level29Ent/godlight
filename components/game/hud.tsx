@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Activity,
   CloudRain,
@@ -83,7 +83,6 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:p-5">
       <header className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1.5 sm:gap-2">
-          <AgePanel />
           <QuestStack />
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -153,32 +152,38 @@ function StatsPanel({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; onO
         <span className="text-[10px] tabular-nums text-[#f5c451]/80 sm:hidden">+{rate.toFixed(1)}/s</span>
       </div>
       <p className="-mt-1.5 hidden text-[11px] tabular-nums text-[#f5c451]/80 sm:block">+{rate.toFixed(1)} faith / sec</p>
-      <div className="flex items-center gap-2.5 text-xs tabular-nums sm:gap-4 sm:text-sm [&_svg]:size-3.5 sm:[&_svg]:size-4">
-        <span className="flex items-center gap-1.5" title="Followers / housing">
-          <Users className="size-4 text-[#9ecbff]" aria-hidden="true" />
-          {pop}
-          <span className="text-[#f4ecd8]/50">/{capacity}</span>
-          <span className="sr-only">followers</span>
-        </span>
-        <span className="flex items-center gap-1.5" title="Wood (chop trees, needed to build)">
-          <Axe className="size-4 text-[#d9a066]" aria-hidden="true" />
-          {wood}
-          <span className="sr-only">wood</span>
-        </span>
-        <span className="flex items-center gap-1.5" title="Stone (mine rocks, needed to build)">
-          <Pickaxe className="size-4 text-[#b8c0cc]" aria-hidden="true" />
-          {stone}
-          <span className="sr-only">stone</span>
-        </span>
-        <span className="flex items-center gap-1.5" title="Happiness">
-          {fear ? <Skull className="size-4 text-[#ff7a5c]" aria-hidden="true" /> : <Smile className="size-4 text-[#9be38a]" aria-hidden="true" />}
-          {happiness}%
-          <span className="sr-only">happiness</span>
-        </span>
-      </div>
-      {fear && <p className="text-[11px] font-medium text-[#ff9a7a]">Your people pray in fear</p>}
-      <BoostBadge />
-      <AudioToggles onOpenSaves={onOpenSaves} onOpenGifts={onOpenGifts} />
+      <details className="group max-w-[calc(100vw-2rem)]">
+        <summary className="min-h-11 cursor-pointer py-3 text-right text-xs text-[#f5c451]">World & settings</summary>
+        <div className="flex max-h-[45dvh] flex-col items-end gap-3 touch-pan-y overflow-y-auto pb-2">
+          <AgePanel />
+          <div className="flex flex-wrap items-center gap-2.5 text-xs tabular-nums sm:gap-4 sm:text-sm [&_svg]:size-3.5 sm:[&_svg]:size-4">
+            <span className="flex items-center gap-1.5" title="Followers / housing">
+              <Users className="size-4 text-[#9ecbff]" aria-hidden="true" />
+              {pop}
+              <span className="text-[#f4ecd8]/50">/{capacity}</span>
+              <span className="sr-only">followers</span>
+            </span>
+            <span className="flex items-center gap-1.5" title="Wood (chop trees, needed to build)">
+              <Axe className="size-4 text-[#d9a066]" aria-hidden="true" />
+              {wood}
+              <span className="sr-only">wood</span>
+            </span>
+            <span className="flex items-center gap-1.5" title="Stone (mine rocks, needed to build)">
+              <Pickaxe className="size-4 text-[#b8c0cc]" aria-hidden="true" />
+              {stone}
+              <span className="sr-only">stone</span>
+            </span>
+            <span className="flex items-center gap-1.5" title="Happiness">
+              {fear ? <Skull className="size-4 text-[#ff7a5c]" aria-hidden="true" /> : <Smile className="size-4 text-[#9be38a]" aria-hidden="true" />}
+              {happiness}%
+              <span className="sr-only">happiness</span>
+            </span>
+          </div>
+          {fear && <p className="text-[11px] font-medium text-[#ff9a7a]">Your people pray in fear</p>}
+          <BoostBadge />
+          <AudioToggles onOpenSaves={onOpenSaves} onOpenGifts={onOpenGifts} />
+        </div>
+      </details>
     </Panel>
   )
 }
@@ -247,7 +252,7 @@ function GiftsButton({ onOpenGifts }: { onOpenGifts: () => void }) {
       onClick={onOpenGifts}
       aria-label="Heavenly gifts"
       title="Heavenly gifts"
-      className="relative flex h-7 min-w-7 items-center justify-center gap-1.5 rounded-full border border-[#f5c451]/30 px-1.5 text-[11px] sm:px-2.5 font-medium text-[#f5c451] transition hover:bg-[#f5c451]/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]"
+      className="relative flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-[#f5c451]/30 px-1.5 text-[11px] sm:px-2.5 font-medium text-[#f5c451] transition hover:bg-[#f5c451]/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]"
     >
       {supporter ? <Crown className="size-3.5" aria-hidden="true" /> : <Gift className="size-3.5" aria-hidden="true" />}
       <span className="hidden sm:inline">Gifts</span>
@@ -261,7 +266,7 @@ function GiftsButton({ onOpenGifts }: { onOpenGifts: () => void }) {
 function AudioToggles({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; onOpenGifts: () => void }) {
   const { music, sfx } = useAudioSettings()
   const base =
-    'flex size-7 items-center justify-center rounded-full border border-white/10 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]'
+    'flex size-11 items-center justify-center rounded-full border border-white/10 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[#f5c451]'
   return (
     <div className="flex items-center gap-1.5 sm:mt-1">
       <GiftsButton onOpenGifts={onOpenGifts} />
@@ -331,6 +336,8 @@ function Toolbar() {
   const ageIndex = useGame((s) => s.ageIndex)
   const faith = useGame((s) => Math.floor(s.faith))
   const info = TOOL_BY_ID[tool]
+  const [expanded, setExpanded] = useState(false)
+  const toggleRef = useRef<HTMLButtonElement>(null)
   const [hintVisible, setHintVisible] = useState(true)
   useEffect(() => {
     setHintVisible(true)
@@ -339,69 +346,75 @@ function Toolbar() {
   }, [tool])
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <p
-        className={cn(
-          'max-w-[90vw] rounded-full bg-black/40 px-3 py-1 text-center text-[11px] leading-snug text-[#f4ecd8]/85 backdrop-blur-sm transition-opacity duration-500 sm:block sm:max-w-md sm:px-4 sm:py-1.5 sm:text-sm sm:opacity-100',
-          hintVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
-        )}
-      >
-        {info.hint}
-      </p>
-      <Panel className="max-w-full overflow-x-auto p-1.5">
-        <div className="flex gap-1" role="toolbar" aria-label="Divine powers">
-          {TOOLS.map((t, i) => {
-            const Icon = ICONS[t.id]
-            const locked = t.unlockAge > ageIndex
-            const active = tool === t.id
-            const affordable = faith >= t.cost
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTool(t.id)}
-                aria-pressed={active}
-                aria-label={`${t.label}${t.cost ? `, costs ${t.cost} faith` : ''}${t.kind === 'build' ? `, needs ${costText(BUILD_COST[t.id as BuildingType])}` : ''}${locked ? `, locked until ${AGES[t.unlockAge].name}` : ''}`}
-                className={cn(
-                  'group relative flex w-14 shrink-0 flex-col items-center gap-0.5 rounded-xl px-1 py-2 transition-all sm:w-16',
-                  active ? 'bg-[#f5c451] text-[#1a1406] shadow-lg shadow-[#f5c451]/30' : 'text-[#f4ecd8] hover:bg-white/10',
-                  locked && 'opacity-45',
-                )}
-              >
-                <span className="absolute left-1.5 top-1 hidden text-[9px] font-medium uppercase opacity-50 sm:inline">{TOOL_KEYS[i]}</span>
-                <span
+    <div className="relative flex flex-col items-center gap-2" onKeyDown={e => { if (e.key === 'Escape') { setExpanded(false); toggleRef.current?.focus() } }}>
+      <button ref={toggleRef} type="button" aria-expanded={expanded} aria-controls="power-picker" onClick={() => setExpanded(v => !v)} className="pointer-events-auto min-h-11 rounded-full border border-[#f5c451]/30 bg-[#0c1028]/90 px-5 text-sm text-[#f5c451] backdrop-blur-md">
+        {info.label} · {expanded ? 'Hide powers ▾' : 'Choose power ▴'}
+      </button>
+      <div id="power-picker" hidden={!expanded} className="pointer-events-auto absolute bottom-full z-20 mb-2 w-[min(24rem,calc(100vw-1.5rem))] rounded-2xl bg-[#0c1028]/95 p-2 shadow-xl">
+        <p
+          className={cn(
+            'max-w-[90vw] rounded-full bg-black/40 px-3 py-1 text-center text-[11px] leading-snug text-[#f4ecd8]/85 backdrop-blur-sm transition-opacity duration-500 sm:block sm:max-w-md sm:px-4 sm:py-1.5 sm:text-sm sm:opacity-100',
+            hintVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
+          )}
+        >
+          {info.hint}
+        </p>
+        <Panel className="max-h-[40dvh] touch-pan-y overflow-y-auto p-1.5">
+          <div className="grid grid-cols-4 gap-1" role="group" aria-label="Divine powers">
+            {TOOLS.map((t, i) => {
+              const Icon = ICONS[t.id]
+              const locked = t.unlockAge > ageIndex
+              const active = tool === t.id
+              const affordable = faith >= t.cost
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => { setTool(t.id); setExpanded(false); toggleRef.current?.focus() }}
+                  disabled={locked}
+                  aria-pressed={active}
+                  aria-label={`${t.label}${t.cost ? `, costs ${t.cost} faith` : ''}${t.kind === 'build' ? `, needs ${costText(BUILD_COST[t.id as BuildingType])}` : ''}${locked ? `, locked until ${AGES[t.unlockAge].name}` : ''}`}
                   className={cn(
-                    'absolute right-1.5 top-1.5 size-1.5 rounded-full',
-                    t.kind === 'build' ? 'bg-[#8fd3ff]' : TOOL_DESTRUCTIVE.has(t.id) ? 'bg-[#ff7a5c]' : t.kind === 'power' ? 'bg-[#9be37a]' : 'bg-transparent',
+                    'group relative flex min-h-14 w-full flex-col items-center gap-0.5 rounded-xl px-1 py-2 transition-all',
+                    active ? 'bg-[#f5c451] text-[#1a1406] shadow-lg shadow-[#f5c451]/30' : 'text-[#f4ecd8] hover:bg-white/10',
+                    locked && 'opacity-45',
                   )}
-                  aria-hidden="true"
-                />
-                {locked ? <Lock className="size-5" aria-hidden="true" /> : <Icon className="size-5" aria-hidden="true" />}
-                <span className="text-[10px] font-medium leading-tight sm:text-[11px]">{t.label}</span>
-                {t.cost > 0 && (
+                >
+                  <span className="absolute left-1.5 top-1 hidden text-[9px] font-medium uppercase opacity-50 sm:inline">{TOOL_KEYS[i]}</span>
                   <span
                     className={cn(
-                      'text-[10px] tabular-nums leading-none',
-                      active ? 'text-[#1a1406]/70' : affordable ? 'text-[#f5c451]' : 'text-[#ff9a7a]',
+                      'absolute right-1.5 top-1.5 size-1.5 rounded-full',
+                      t.kind === 'build' ? 'bg-[#8fd3ff]' : TOOL_DESTRUCTIVE.has(t.id) ? 'bg-[#ff7a5c]' : t.kind === 'power' ? 'bg-[#9be37a]' : 'bg-transparent',
                     )}
-                  >
-                    {t.cost}
-                  </span>
-                )}
-                {t.kind === 'build' && (
-                  <span
-                    className={cn('flex gap-1 text-[9px] tabular-nums leading-none', active ? 'text-[#1a1406]/70' : 'text-[#f4ecd8]/60')}
                     aria-hidden="true"
-                  >
-                    {BUILD_COST[t.id as BuildingType].wood > 0 && <span className={active ? '' : 'text-[#d9a066]'}>{BUILD_COST[t.id as BuildingType].wood}w</span>}
-                    {BUILD_COST[t.id as BuildingType].stone > 0 && <span className={active ? '' : 'text-[#b8c0cc]'}>{BUILD_COST[t.id as BuildingType].stone}s</span>}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </Panel>
+                  />
+                  {locked ? <Lock className="size-5" aria-hidden="true" /> : <Icon className="size-5" aria-hidden="true" />}
+                  <span className="text-[10px] font-medium leading-tight sm:text-[11px]">{t.label}</span>
+                  {t.cost > 0 && (
+                    <span
+                      className={cn(
+                        'text-[10px] tabular-nums leading-none',
+                        active ? 'text-[#1a1406]/70' : affordable ? 'text-[#f5c451]' : 'text-[#ff9a7a]',
+                      )}
+                    >
+                      {t.cost}
+                    </span>
+                  )}
+                  {t.kind === 'build' && (
+                    <span
+                      className={cn('flex gap-1 text-[9px] tabular-nums leading-none', active ? 'text-[#1a1406]/70' : 'text-[#f4ecd8]/60')}
+                      aria-hidden="true"
+                    >
+                      {BUILD_COST[t.id as BuildingType].wood > 0 && <span className={active ? '' : 'text-[#d9a066]'}>{BUILD_COST[t.id as BuildingType].wood}w</span>}
+                      {BUILD_COST[t.id as BuildingType].stone > 0 && <span className={active ? '' : 'text-[#b8c0cc]'}>{BUILD_COST[t.id as BuildingType].stone}s</span>}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </Panel>
+      </div>
     </div>
   )
 }
