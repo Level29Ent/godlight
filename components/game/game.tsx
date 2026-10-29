@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { Canvas } from '@react-three/fiber'
 import { Sparkles, Sun, CloudRain, Zap } from 'lucide-react'
 import { startDir, startGame, resetGame, useGame } from '@/lib/game/store'
@@ -67,7 +66,6 @@ function TitleScreen({ onOpenSaves }: { onOpenSaves: () => void }) {
       >
         Become a God
       </button>
-      <Link href="/duels" className="mt-4 rounded-full border border-[#f5c451]/50 px-8 py-3 text-[#f5c451]">Divine Duels · Play a friend</Link>
       <ContinueButton onOpenSaves={onOpenSaves} />
       <p className="mt-4 text-[11px] text-[#f4ecd8]/45">Drag the stars to spin the world · Hold on land to use powers · Keys 1–8 switch tools</p>
       <nav aria-label="Legal and support" className="mt-3 flex gap-4">
