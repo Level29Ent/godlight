@@ -1,6 +1,13 @@
+<<<<<<< HEAD
 import { useSyncExternalStore } from 'react'
 import { Color, Vector3 } from 'three'
 import { AGES, ROBE_COLORS, SKIN_COLORS, TOOL_BY_ID, nightAmount, type Tool } from './config'
+=======
+import { stockpileProgress, constructionProgress } from './task-progress'
+import { useSyncExternalStore } from 'react'
+import { Color, Vector3 } from 'three'
+import { AGES, ROBE_COLORS, SKIN_COLORS, TOOL_BY_ID, type Tool } from './config'
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 import { setLoop, sfx, type SfxName } from './audio'
 import { requestNotificationPermission } from './native'
 import { OBJECTIVES } from './objectives'
@@ -97,7 +104,11 @@ export interface TetherState {
   preview: TetherPreview | null
 }
 
+<<<<<<< HEAD
 export type ChallengeKind = 'wildfire' | 'pilgrims' | 'festival' | 'boom' | 'harvest' | 'drought' | 'devotion'
+=======
+export type ChallengeKind = 'wildfire' | 'pilgrims' | 'festival' | 'boom' | 'harvest' | 'lumber' | 'masonry' | 'builder'
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 
 export interface Challenge {
   id: number
@@ -138,6 +149,7 @@ export interface Stats {
   jobsAssigned: number
   woodChopped: number
   stoneMined: number
+<<<<<<< HEAD
   bounties: number
   monuments: number
   auroras: number
@@ -145,6 +157,11 @@ export interface Stats {
 }
 
 export type BuildingType = 'house' | 'farm' | 'temple' | 'well' | 'monument'
+=======
+}
+
+export type BuildingType = 'house' | 'farm' | 'temple' | 'well'
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 
 export type Material = 'wood' | 'stone'
 
@@ -153,7 +170,10 @@ export const BUILD_COST: Record<BuildingType, Record<Material, number>> = {
   farm: { wood: 5, stone: 0 },
   well: { wood: 2, stone: 8 },
   temple: { wood: 14, stone: 14 },
+<<<<<<< HEAD
   monument: { wood: 8, stone: 24 },
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 }
 
 export interface Rock {
@@ -290,9 +310,12 @@ export interface GameState {
   zaps: Zap[]
   invasionTimer: number
   tether: TetherState
+<<<<<<< HEAD
   auroraTimer: number
   night: number
   wasNight: boolean
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 }
 
 const SUN_RADIUS = 1.1
@@ -359,10 +382,13 @@ function createState(): GameState {
       jobsAssigned: 0,
       woodChopped: 0,
       stoneMined: 0,
+<<<<<<< HEAD
       bounties: 0,
       monuments: 0,
       auroras: 0,
       nightPrayers: 0,
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
     },
     objectiveIndex: 0,
     challenge: null,
@@ -376,9 +402,12 @@ function createState(): GameState {
     zaps: [],
     invasionTimer: 150,
     tether: { followerId: null, dragging: false, preview: null },
+<<<<<<< HEAD
     auroraTimer: 0,
     night: 0,
     wasNight: false,
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   }
 }
 
@@ -415,7 +444,11 @@ function makeFollower(dir: Vector3): Follower {
 }
 
 export function maxHp(type: BuildingType) {
+<<<<<<< HEAD
   return type === 'monument' ? 260 : type === 'temple' ? 220 : type === 'well' ? 140 : 100
+=======
+  return type === 'temple' ? 220 : type === 'well' ? 140 : 100
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 }
 
 function makeBuilding(type: BuildingType, dir: Vector3, complete = false): Building {
@@ -660,7 +693,10 @@ export interface SaveData {
   rocks?: { d: V3; sz: number; y: number }[]
   invasionTimer?: number
   boostTimer?: number
+<<<<<<< HEAD
   auroraTimer?: number
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   followers: { id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number; j?: [JobKind, V3] }[]
   buildings: { t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
   trees: { d: V3; sz: number; k: 0 | 1; c: number; y: number }[]
@@ -695,7 +731,10 @@ export function exportSave(): SaveData {
     rocks: s.rocks.map((r) => ({ d: packV3(r.dir), sz: round(r.size), y: round(r.yaw) })),
     invasionTimer: round(Math.max(s.invasionTimer, 45)),
     boostTimer: round(s.boostTimer),
+<<<<<<< HEAD
     auroraTimer: round(s.auroraTimer),
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
     followers: s.followers.map((f) => ({
       id: f.id,
       d: packV3(f.dir),
@@ -719,7 +758,11 @@ export function exportSave(): SaveData {
   }
 }
 
+<<<<<<< HEAD
 const BUILDING_TYPES: BuildingType[] = ['house', 'farm', 'temple', 'well', 'monument']
+=======
+const BUILDING_TYPES: BuildingType[] = ['house', 'farm', 'temple', 'well']
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 const JOB_KINDS: JobKind[] = ['chop', 'mine', 'farm', 'build', 'pray', 'fight', 'guard']
 
 export function importSave(raw: unknown): boolean {
@@ -742,9 +785,12 @@ export function importSave(raw: unknown): boolean {
   state.stone = Math.max(0, num(data.stone, 4))
   state.invasionTimer = Math.max(45, num(data.invasionTimer, 150))
   state.boostTimer = Math.max(0, Math.min(3600, num(data.boostTimer)))
+<<<<<<< HEAD
   state.auroraTimer = Math.max(0, Math.min(30, num(data.auroraTimer)))
   state.night = nightAmount(state.time)
   state.wasNight = state.night > 0.5
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 
   if (data.stats && typeof data.stats === 'object') {
     for (const key of Object.keys(fresh.stats) as (keyof Stats)[]) {
@@ -1033,6 +1079,7 @@ function castGrove(dir: Vector3) {
   say(planted > 0 ? `A sacred grove of ${planted} trees springs from the earth.` : 'The land here is already lush.', 'good')
 }
 
+<<<<<<< HEAD
 const BOUNTY_RADIUS = 1.8
 
 function castBounty(dir: Vector3) {
@@ -1090,6 +1137,8 @@ function castAurora() {
   say('An aurora dances across the sky. The whole world rejoices!', 'good')
 }
 
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 function castBlessing(dir: Vector3) {
   if (!spend(TOOL_BY_ID.blessing.cost)) return
   state.stats.blessings++
@@ -1269,7 +1318,11 @@ function placeBuilding(type: BuildingType, dir: Vector3) {
     return
   }
   for (const b of state.buildings) {
+<<<<<<< HEAD
     if (surfaceDist(b.dir, dir) < (type === 'temple' || b.type === 'temple' || type === 'monument' || b.type === 'monument' ? 0.8 : 0.55)) {
+=======
+    if (surfaceDist(b.dir, dir) < (type === 'temple' || b.type === 'temple' ? 0.8 : 0.55)) {
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
       say('Too close to another building.')
       return
     }
@@ -2283,9 +2336,12 @@ const CAST_SFX: Partial<Record<Tool, SfxName>> = {
   blessing: 'blessing',
   quake: 'quake',
   tornado: 'tornado',
+<<<<<<< HEAD
   bounty: 'grove',
   aurora: 'blessing',
   monument: 'build',
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   house: 'build',
   farm: 'build',
   temple: 'build',
@@ -2310,9 +2366,13 @@ function applyCursor(dt: number) {
     else if (tool === 'blessing') castBlessing(dir)
     else if (tool === 'quake') castQuake(dir)
     else if (tool === 'tornado') castTornado(dir)
+<<<<<<< HEAD
     else if (tool === 'bounty') castBounty(dir)
     else if (tool === 'aurora') castAurora()
     else if (tool === 'house' || tool === 'farm' || tool === 'temple' || tool === 'well' || tool === 'monument') placeBuilding(tool, dir)
+=======
+    else if (tool === 'house' || tool === 'farm' || tool === 'temple' || tool === 'well') placeBuilding(tool, dir)
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
     if (castSound) sfx(state.faith < faithBefore ? castSound : 'error')
   }
 
@@ -2436,12 +2496,15 @@ function updateBuildings(dt: number) {
         if (t.charred === 0 && t.size < 1 && surfaceDist(t.dir, b.dir) < 1.6) t.size = Math.min(1, t.size + 0.02 * dt)
       }
     }
+<<<<<<< HEAD
     if (b.type === 'monument' && b.progress >= 1) {
       for (const f of state.followers) {
         if (!f.lost && surfaceDist(f.dir, b.dir) < 2.4) f.happiness = Math.min(100, f.happiness + 1.4 * dt)
       }
       if (Math.random() < dt * 3) emit('faith', b.dir, 1, 0.06, 0.9)
     }
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
     b.sunned = false
     if (b.hp <= 0) changed = true
   }
@@ -2541,13 +2604,17 @@ function updateStats() {
   state.stats.houses = houses
   state.stats.temples = temples
   state.stats.wells = done.filter((b) => b.type === 'well').length
+<<<<<<< HEAD
   state.stats.monuments = done.filter((b) => b.type === 'monument').length
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   state.stats.farBuildings = done.filter((b) => b.dir.dot(startDir) < 0).length
 }
 
 function updateEconomy(dt: number) {
   updateStats()
   const fearMult = state.fearTimer > 0 ? 1.8 : 1
+<<<<<<< HEAD
   state.night = nightAmount(state.time)
   const isNight = state.night > 0.5
   if (isNight !== state.wasNight) {
@@ -2555,26 +2622,39 @@ function updateEconomy(dt: number) {
     say(isNight ? 'Night falls. Prayers by moonlight carry 25% more faith.' : 'Dawn breaks over your world.', 'info')
   }
   const nightMult = 1 + state.night * 0.25
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   let rate = 0
   for (const f of state.followers) {
     if (f.lost) continue
     if (f.state === 'pray' && f.burning === 0) {
+<<<<<<< HEAD
       const r = (0.35 + (f.happiness / 100) * 1.1) * (f.atTemple ? 2.6 : 1) * fearMult * nightMult
       rate += r
       if (isNight) state.stats.nightPrayers += dt
+=======
+      const r = (0.35 + (f.happiness / 100) * 1.1) * (f.atTemple ? 2.6 : 1) * fearMult
+      rate += r
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
       if (Math.random() < dt * r * 0.9) emit('faith', f.dir, 1, 0.02, 0.4)
     } else {
       rate += (f.happiness / 100) * 0.12
     }
   }
+<<<<<<< HEAD
   rate += state.stats.monuments * 1.5
   if (state.auroraTimer > 0) rate *= 1.5
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   if (state.boostTimer > 0) rate *= 2
   state.faithRate = rate
   state.faith += rate * dt
   state.fearTimer = Math.max(0, state.fearTimer - dt)
   state.boostTimer = Math.max(0, state.boostTimer - dt)
+<<<<<<< HEAD
   state.auroraTimer = Math.max(0, state.auroraTimer - dt)
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 
   state.birthTimer -= dt
   if (state.birthTimer <= 0) {
@@ -2644,7 +2724,11 @@ function updateObjectives() {
 
 // ---------- challenges ----------
 
+<<<<<<< HEAD
 const CHALLENGE_KINDS: ChallengeKind[] = ['wildfire', 'pilgrims', 'festival', 'boom', 'harvest', 'drought', 'devotion']
+=======
+const CHALLENGE_KINDS: ChallengeKind[] = ['wildfire', 'pilgrims', 'festival', 'boom', 'harvest', 'lumber', 'masonry', 'builder']
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 const CHALLENGE_RADIUS = 4.5
 
 function findFarLandDir() {
@@ -2685,6 +2769,18 @@ function makeChallenge(
 
 function createChallenge(kind: ChallengeKind): Challenge | null {
   switch (kind) {
+<<<<<<< HEAD
+=======
+    case 'lumber':
+      if (!state.trees.some(t => t.charred === 0)) return null
+      return makeChallenge('lumber', 'Timber Trail', 'Tether followers to trees and stockpile 12 more wood. Avoid spending wood until complete.', 90, 12, 45, { base: state.wood })
+    case 'masonry':
+      if (!state.rocks.length) return null
+      return makeChallenge('masonry', 'Stonekeepers', 'Tether followers to rocks and stockpile 8 more stone. Avoid spending stone until complete.', 90, 8, 45, { base: state.stone })
+    case 'builder':
+      if (!state.buildings.some(b => b.progress < 1)) return null
+      return makeChallenge('builder', 'Raise the Roof', 'Finish one of your current construction sites. Tether followers to the site to help.', 100, 1, 60, { ids: state.buildings.filter(b => b.progress < 1).map(b => b.id) })
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
     case 'wildfire': {
       const candidates = state.trees.filter((t) => t.charred === 0 && t.burning === 0 && t.dir.dot(state.viewDir) < -0.1)
       if (candidates.length < 3) return null
@@ -2740,6 +2836,7 @@ function createChallenge(kind: ChallengeKind): Challenge | null {
       return makeChallenge('harvest', 'Great Harvest', 'Bring in 2 harvests. Rain and sun make crops grow fast.', 70, 2, 45, {
         base: state.harvests,
       })
+<<<<<<< HEAD
     case 'drought': {
       const farms = state.buildings.filter((b) => b.type === 'farm' && b.progress >= 1)
       if (farms.length < 2) return null
@@ -2768,6 +2865,8 @@ function createChallenge(kind: ChallengeKind): Challenge | null {
         { base: goal },
       )
     }
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   }
 }
 
@@ -2800,10 +2899,13 @@ function finishChallenge(c: Challenge, won: boolean) {
   } else if (c.kind === 'wildfire') {
     for (const f of state.followers) f.happiness = Math.max(0, f.happiness - 20)
     say('The wildfire burned unchecked. Your people despair.', 'bad')
+<<<<<<< HEAD
   } else if (c.kind === 'drought') {
     for (const b of state.buildings) if (b.type === 'farm') b.growth = 0
     for (const f of state.followers) f.happiness = Math.max(0, f.happiness - 12)
     say('The crops withered in the drought.', 'bad')
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   } else if (c.kind === 'pilgrims') {
     state.followers = state.followers.filter((f) => !(f.lost && c.ids.includes(f.id)))
     say('The lost pilgrims wandered away into the wilds.', 'bad')
@@ -2836,6 +2938,19 @@ function updateChallenges(dt: number) {
   let failEarly = false
 
   switch (c.kind) {
+<<<<<<< HEAD
+=======
+    case 'lumber':
+      c.progress = stockpileProgress(state.wood, c.base)
+      break
+    case 'masonry':
+      c.progress = stockpileProgress(state.stone, c.base)
+      break
+    case 'builder':
+      c.progress = constructionProgress(state.buildings, c.ids)
+      failEarly = !state.buildings.some(b => c.ids.includes(b.id))
+      break
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
     case 'wildfire': {
       const dir = c.dir!
       const burning =
@@ -2861,12 +2976,15 @@ function updateChallenges(dt: number) {
     case 'harvest':
       c.progress = state.harvests - c.base
       break
+<<<<<<< HEAD
     case 'drought':
       c.progress = state.buildings.filter((b) => b.type === 'farm' && b.progress >= 1 && b.moisture >= 0.85).length
       break
     case 'devotion':
       if (state.faithRate >= c.base) c.progress += dt
       break
+=======
+>>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   }
 
   if (c.progress >= c.target) finishChallenge(c, true)
