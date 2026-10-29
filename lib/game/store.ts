@@ -142,7 +142,7 @@ export interface Stats {
   auroras: number
   nightPrayers: number
 }
-}
+
 export type BuildingType = 'house' | 'farm' | 'temple' | 'well' | 'monument'
 export type Material = 'wood' | 'stone'
 export const BUILD_COST: Record<BuildingType, Record<Material, number>> = {
