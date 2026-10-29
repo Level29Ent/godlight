@@ -145,13 +145,13 @@ export interface Stats {
 
 export type BuildingType = 'house' | 'farm' | 'temple' | 'well' | 'monument'
 export type Material = 'wood' | 'stone'
+
 export const BUILD_COST: Record<BuildingType, Record<Material, number>> = {
   house: { wood: 8, stone: 3 },
   farm: { wood: 5, stone: 0 },
   well: { wood: 2, stone: 8 },
   temple: { wood: 14, stone: 14 },
-  monument: { wood: 10, stone: 20 }, // adjust numbers as you like for your game balance
-}
+  monument: { wood: 10, stone: 20 },
 }
 
 export interface Rock {
