@@ -2721,6 +2721,7 @@ function createChallenge(kind: ChallengeKind): Challenge | null {
         { dir, ids },
       )
     }
+    return null;
     case 'festival':
       if (state.pop < 3) return null
       return makeChallenge(
@@ -2766,7 +2767,9 @@ function createChallenge(kind: ChallengeKind): Challenge | null {
         { base: goal },
       )
     }
+  // end of last switch case in createChallenge
   }
+  return null;
 }
 
 function startChallenge() {
