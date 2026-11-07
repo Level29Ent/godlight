@@ -88,7 +88,7 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
   if (!started) return null
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:p-5">
-      <header className="flex items-start justify-between gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-2 sm:flex-nowrap">
         <div className="flex flex-col gap-1.5 sm:gap-2">
           <AgePanel />
           <QuestStack />
@@ -130,7 +130,7 @@ function AgePanel() {
   const isNight = useGame((s) => s.night > 0.5)
   const aurora = useGame((s) => Math.ceil(s.auroraTimer))
   return (
-    <Panel className="w-40 rounded-xl px-3 py-2 sm:w-60 sm:rounded-2xl sm:px-4 sm:py-3">
+    <Panel className="w-32 rounded-xl px-3 py-2 sm:w-60 sm:rounded-2xl sm:px-4 sm:py-3">
       <div className="flex items-center justify-between gap-2">
         <p className="font-display hidden text-[10px] uppercase tracking-[0.25em] text-[#f5c451]/80 sm:block">Godlight</p>
         <span
@@ -166,7 +166,7 @@ function StatsPanel({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; onO
   const stone = useGame((s) => Math.floor(s.stone))
 
   return (
-    <Panel className="flex flex-col items-end gap-1.5 rounded-xl px-3 py-2 sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3">
+    <Panel className="flex max-w-full flex-col items-end gap-1.5 rounded-xl px-3 py-2 sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3">
       <div className="flex items-baseline gap-1.5 sm:items-center sm:gap-2">
         <Sparkles className="size-4 self-center text-[#f5c451] sm:size-5" aria-hidden="true" />
         <span className="font-display text-xl font-semibold tabular-nums sm:text-3xl">{faith}</span>
@@ -174,7 +174,7 @@ function StatsPanel({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; onO
         <span className="text-[10px] tabular-nums text-[#f5c451]/80 sm:hidden">+{rate.toFixed(1)}/s</span>
       </div>
       <p className="-mt-1.5 hidden text-[11px] tabular-nums text-[#f5c451]/80 sm:block">+{rate.toFixed(1)} faith / sec</p>
-      <div className="flex items-center gap-2.5 text-xs tabular-nums sm:gap-4 sm:text-sm [&_svg]:size-3.5 sm:[&_svg]:size-4">
+      <div className="flex flex-wrap items-center justify-end gap-2.5 text-xs tabular-nums sm:gap-4 sm:text-sm [&_svg]:size-3.5 sm:[&_svg]:size-4">
         <span className="flex items-center gap-1.5" title="Followers / housing">
           <Users className="size-4 text-[#9ecbff]" aria-hidden="true" />
           {pop}
