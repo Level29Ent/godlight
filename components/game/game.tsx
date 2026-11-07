@@ -16,7 +16,7 @@ import { recordCrash } from '@/lib/game/crash-log'
 
 const SaveMenu = dynamic(() => import('./save-menu').then(module => module.SaveMenu), { ssr: false })
 
-const cameraPosition = startDir.clone().multiplyScalar(PLANET_RADIUS * 3).toArray() as [number, number, number]
+const cameraPosition = startDir.clone().multiplyScalar(PLANET_RADIUS * 3.8).toArray() as [number, number, number]
 
 export default function Game() {
   const [batterySaver, setBatterySaver] = useState(false)
