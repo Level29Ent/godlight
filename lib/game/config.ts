@@ -12,12 +12,9 @@ export type Tool =
   | 'quake'
   | 'meteor'
   | 'tornado'
-<<<<<<< HEAD
   | 'bounty'
   | 'monument'
   | 'aurora'
-=======
->>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 
 export interface ToolInfo {
   id: Tool
@@ -38,19 +35,13 @@ export const TOOLS: ToolInfo[] = [
   { id: 'well', label: 'Well', cost: 35, unlockAge: 1, kind: 'build', hint: 'A spring of fresh water. Keeps nearby farms moist and followers content.' },
   { id: 'lightning', label: 'Lightning', cost: 10, unlockAge: 1, kind: 'power', hint: 'Smite the land. Witnesses pray in fear for a while.' },
   { id: 'blessing', label: 'Blessing', cost: 40, unlockAge: 2, kind: 'power', hint: 'A golden miracle. Heals people, quenches fires, restores buildings and burnt forests.' },
-<<<<<<< HEAD
   { id: 'bounty', label: 'Bounty', cost: 30, unlockAge: 2, kind: 'power', hint: 'A wave of abundance. Ripens nearby crops, soaks the soil, and revives scorched trees.' },
-=======
->>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   { id: 'temple', label: 'Temple', cost: 150, unlockAge: 2, kind: 'build', hint: 'Followers pilgrimage here. Prayer at a temple yields far more faith.' },
   { id: 'quake', label: 'Quake', cost: 30, unlockAge: 2, kind: 'power', hint: 'Shake the earth. Topples trees, cracks buildings, and fills hearts with dread.' },
   { id: 'meteor', label: 'Meteor', cost: 60, unlockAge: 3, kind: 'power', hint: 'Call down the heavens. Devastating — and unforgettable.' },
   { id: 'tornado', label: 'Tornado', cost: 50, unlockAge: 3, kind: 'power', hint: 'Unleash a roaming twister that tears through everything in its path.' },
-<<<<<<< HEAD
   { id: 'monument', label: 'Monument', cost: 220, unlockAge: 4, kind: 'build', hint: 'A golden obelisk. Radiates faith on its own and lifts the spirits of everyone nearby.' },
   { id: 'aurora', label: 'Aurora', cost: 120, unlockAge: 5, kind: 'power', hint: 'Paint the sky with light. The whole world rejoices and faith flows 50% faster for 30s.' },
-=======
->>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 ]
 
 export const TOOL_BY_ID = Object.fromEntries(TOOLS.map((t) => [t.id, t])) as Record<Tool, ToolInfo>
@@ -61,7 +52,6 @@ export const AGES = [
   { name: 'Age of Bronze', pop: 14 },
   { name: 'Age of Iron', pop: 22 },
   { name: 'Age of Gold', pop: 35 },
-<<<<<<< HEAD
   { name: 'Age of Stars', pop: 50 },
 ]
 
@@ -73,9 +63,5 @@ export function nightAmount(time: number) {
   return Math.min(1, Math.max(0, (-sun + 0.15) / 0.5))
 }
 
-=======
-]
-
->>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
 export const ROBE_COLORS = ['#e45d50', '#f2a541', '#4f86c6', '#8e6cc9', '#e8e2d0', '#3fa7a0', '#d9658f', '#6b9f3e']
 export const SKIN_COLORS = ['#f1c9a5', '#d9a47a', '#b57b52', '#8a5636', '#f6d6b8']

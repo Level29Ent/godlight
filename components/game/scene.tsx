@@ -1,14 +1,15 @@
 'use client'
 
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Stars } from '@react-three/drei'
+import { SolarSystem } from './solar-system'
 import { CameraRig } from './camera-rig'
 import { Bloom, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import { DirectionalLight, Group, Vector3 } from 'three'
 import { PLANET_RADIUS } from '@/lib/game/planet'
-import { state, tick, useGame } from '@/lib/game/store'
+import { state, tick } from '@/lib/game/store'
 import { Planet } from './planet'
 import { Followers } from './followers'
 import { Invaders } from './invaders'
@@ -21,17 +22,25 @@ import { Effects } from './effects'
 import { ParticleSystem } from './particles'
 
 function Simulation() {
-  useFrame((_, dt) => tick(Math.min(dt, 0.05)))
+  const [failure, setFailure] = useState<Error | null>(null)
+  useFrame((_, dt) => {
+    if (document.hidden || failure) return
+    try { tick(Math.min(dt, 0.05)) }
+    catch (error) { setFailure(error instanceof Error ? error : new Error('Simulation failed')) }
+  })
+  if (failure) throw failure
   return null
 }
 
 function CameraLight() {
   const light = useRef<DirectionalLight>(null)
   const tmp = useMemo(() => new Vector3(), [])
+  const right = useMemo(() => new Vector3(), [])
+  const forward = useMemo(() => new Vector3(), [])
   useFrame(({ camera }) => {
     if (!light.current) return
     tmp.copy(camera.up).multiplyScalar(6)
-    const right = new Vector3().crossVectors(camera.getWorldDirection(new Vector3()), camera.up).normalize()
+    right.crossVectors(camera.getWorldDirection(forward), camera.up).normalize()
     tmp.addScaledVector(right, -5)
     light.current.position.copy(camera.position).add(tmp).setLength(PLANET_RADIUS * 4)
     light.current.target.position.set(0, 0, 0)
@@ -132,13 +141,13 @@ function ShakeGroup({ children }: { children: React.ReactNode }) {
   return <group ref={g}>{children}</group>
 }
 
-export function Scene() {
-  const started = useGame((s) => s.started)
+export function Scene({ batterySaver = false }: { batterySaver?: boolean }) {
   return (
     <>
       <color attach="background" args={['#060817']} />
       <fog attach="fog" args={['#060817', 55, 130]} />
-      <Stars radius={110} depth={50} count={6000} factor={5} saturation={0.3} fade speed={0.6} />
+      <Stars radius={110} depth={50} count={batterySaver ? 1200 : 6000} factor={5} saturation={0.3} fade speed={0.6} />
+      <SolarSystem />
       <hemisphereLight args={['#cfe8ff', '#3b2c4f', 0.7]} />
       <ambientLight intensity={0.18} />
       <CameraLight />
@@ -161,11 +170,11 @@ export function Scene() {
         <ParticleSystem kind="leaf" />
         <ParticleSystem kind="dust" />
       </ShakeGroup>
-      <EffectComposer multisampling={4}>
+      {!batterySaver && <EffectComposer multisampling={0}>
         <Bloom mipmapBlur luminanceThreshold={1} luminanceSmoothing={0.2} intensity={1.15} radius={0.7} />
         <Vignette eskil={false} offset={0.25} darkness={0.75} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-      </EffectComposer>
+      </EffectComposer>}
     </>
   )
 }

@@ -7,12 +7,23 @@ import { PLANET_RADIUS } from '@/lib/game/planet'
 import { Scene } from './scene'
 import { Hud } from './hud'
 import { unlockAudio } from '@/lib/game/audio'
-import { useCallback, useState } from 'react'
-import { Autosave, ContinueButton, SaveMenu } from './save-menu'
+import { useCallback, useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
+import { Autosave, ContinueButton } from './save-runtime'
+import { LocalProgress } from './local-progress'
+import { RenderBudget } from './render-budget'
+import { recordCrash } from '@/lib/game/crash-log'
+
+const SaveMenu = dynamic(() => import('./save-menu').then(module => module.SaveMenu), { ssr: false })
 
 const cameraPosition = startDir.clone().multiplyScalar(PLANET_RADIUS * 3).toArray() as [number, number, number]
 
 export default function Game() {
+  const [batterySaver, setBatterySaver] = useState(false)
+  const [contextLost, setContextLost] = useState(false)
+  useEffect(() => {
+    try { setBatterySaver(localStorage.getItem('godlight-battery') === 'true') } catch {}
+  }, [])
   const [savesOpen, setSavesOpen] = useState(false)
   const openSaves = useCallback(() => {
     unlockAudio()
@@ -20,20 +31,39 @@ export default function Game() {
   }, [])
   const closeSaves = useCallback(() => setSavesOpen(false), [])
   return (
-    <main className="relative h-dvh w-full touch-none select-none overflow-hidden bg-[#060817]">
+    <main className="relative h-dvh w-full select-none overflow-hidden bg-[#060817]">
       <Canvas
-        shadows
-        dpr={[1, 2]}
+        shadows={!batterySaver}
+        dpr={batterySaver ? 1 : [1, 1.5]}
+        fallback={<p role="alert">This device needs WebGL to play Godlight.</p>}
+        onCreated={({ gl }) => {
+          gl.domElement.addEventListener('webglcontextlost', (event) => {
+            event.preventDefault()
+            recordCrash('webgl')
+            setContextLost(true)
+          }, { once: true })
+        }}
         camera={{ position: cameraPosition, fov: 42, near: 0.1, far: 200 }}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
       >
-        <Scene />
+        <RenderBudget batterySaver={batterySaver} />
+        <Scene batterySaver={batterySaver} />
       </Canvas>
       <Hud onOpenSaves={openSaves} />
       <TitleScreen onOpenSaves={openSaves} />
       <GameOver onOpenSaves={openSaves} />
-      <SaveMenu open={savesOpen} onClose={closeSaves} />
+      {savesOpen && <SaveMenu open onClose={closeSaves} />}
       <Autosave />
+      <LocalProgress />
+      <button type="button" aria-pressed={batterySaver} className="absolute bottom-0 left-0 z-10 min-h-11 rounded-tr-xl bg-[#0c1028] px-3 text-xs text-[#f5c451]" onClick={() => {
+        const next = !batterySaver
+        setBatterySaver(next)
+        try { localStorage.setItem('godlight-battery', String(next)) } catch {}
+      }}>Battery saver {batterySaver ? 'on' : 'off'}</button>
+      {contextLost && <div role="alert" className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#060817] p-6 text-center text-[#f4ecd8]">
+        <p>The graphics connection was interrupted. Reload to recover your saved world.</p>
+        <button type="button" onClick={() => location.reload()} className="rounded-full bg-[#f5c451] px-6 py-3 text-[#1a1406]">Reload game</button>
+      </div>}
     </main>
   )
 }
@@ -67,6 +97,7 @@ function TitleScreen({ onOpenSaves }: { onOpenSaves: () => void }) {
         Become a God
       </button>
       <ContinueButton onOpenSaves={onOpenSaves} />
+      <LocalProgress control />
       <p className="mt-4 text-[11px] text-[#f4ecd8]/45">Drag the stars to spin the world · Hold on land to use powers · Keys 1–8 switch tools</p>
       <nav aria-label="Legal and support" className="mt-3 flex gap-4">
         <a

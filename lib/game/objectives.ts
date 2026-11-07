@@ -146,55 +146,6 @@ export const OBJECTIVES: ObjectiveDef[] = [
     reward: 200,
     progress: (s) => (s.ageIndex >= 4 ? 35 : s.pop),
   },
-<<<<<<< HEAD
-  {
-    id: 'bounty',
-    title: 'Horn of Plenty',
-    desc: 'Cast Bounty 3 times to ripen fields and heal the land.',
-    target: 3,
-    reward: 60,
-    progress: (s) => s.stats.bounties,
-  },
-  {
-    id: 'moonlight',
-    title: 'Moonlit Vigil',
-    desc: 'Have followers pray through the night for 60 combined seconds.',
-    target: 60,
-    reward: 70,
-    progress: (s) => s.stats.nightPrayers,
-  },
-  {
-    id: 'monument',
-    title: 'Eternal Stone',
-    desc: 'Complete a Monument to your glory.',
-    target: 1,
-    reward: 150,
-    progress: (s) => s.stats.monuments,
-  },
-  {
-    id: 'stars',
-    title: 'Age of Stars',
-    desc: 'Reach 50 followers and touch the heavens.',
-    target: 50,
-    reward: 300,
-    progress: (s) => (s.ageIndex >= 5 ? 50 : s.pop),
-  },
-  {
-    id: 'aurora',
-    title: 'Sky Painter',
-    desc: 'Call forth an Aurora.',
-    target: 1,
-    reward: 120,
-    progress: (s) => s.stats.auroras,
-  },
-  {
-    id: 'challenge12',
-    title: 'Living Legend',
-    desc: 'Win 12 divine challenges.',
-    target: 12,
-    reward: 250,
-    progress: (s) => s.challengesWon,
-=======
   // Append-only: saved games store objectiveIndex, so earlier objectives retain their positions.
   {
     id: 'wood-reserve', title: 'Forest Stewards',
@@ -220,6 +171,5 @@ export const OBJECTIVES: ObjectiveDef[] = [
     id: 'challenge10', title: 'Guardian of Worlds',
     desc: 'Win 10 divine challenges.',
     target: 10, reward: 200, progress: (s) => s.challengesWon,
->>>>>>> b4934971010535417ed63dd621c729ef2ccd530b
   },
 ]

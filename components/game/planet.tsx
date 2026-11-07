@@ -12,9 +12,11 @@ export function Planet() {
 
   useEffect(() => {
     const up = () => releaseCursor()
+    window.addEventListener('blur', up)
     window.addEventListener('pointerup', up)
     window.addEventListener('pointercancel', up)
     return () => {
+      window.removeEventListener('blur', up)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
     }

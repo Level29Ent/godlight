@@ -5,12 +5,15 @@
   "packageManager": "pnpm@12.3.4",
   "scripts": {
     "dev": "next dev",
-    "build": "npx next build",
+    "build": "next build && node scripts/build-worker.mjs",
     "start": "next start",
     "cap:sync": "cap sync",
     "cap:assets": "capacitor-assets generate --iconBackgroundColor '#060817' --splashBackgroundColor '#060817'",
     "ios": "cap sync ios && cap open ios",
-    "android": "cap sync android && cap open android"
+    "android": "cap sync android && cap open android",
+    "test": "tsx --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "node scripts/check-source.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -33,7 +36,7 @@
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.4",
     "lucide-react": "^1.16.0",
-    "next": "^16.4.0",
+    "next": "16.4.5",
     "pg": "^8.23.1",
     "postprocessing": "^6.39.5",
     "react": "^19.3.1",
@@ -56,6 +59,8 @@
     "@types/three": "^0.186.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.3.3",
-    "typescript": "5.7.3"
+    "tsx": "^4.23.15",
+    "typescript": "5.7.3",
+    "workbox-build": "^7.4.1"
   }
 }

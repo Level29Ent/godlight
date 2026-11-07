@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { GameBoundary, RuntimeDiagnostics } from './game-boundary'
 
 const Game = dynamic(() => import('./game'), {
   ssr: false,
@@ -12,5 +13,5 @@ const Game = dynamic(() => import('./game'), {
 })
 
 export function GameLoader() {
-  return <Game />
+  return <GameBoundary><RuntimeDiagnostics /><Game /></GameBoundary>
 }
