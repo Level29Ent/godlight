@@ -36,8 +36,6 @@ export const viewport: Viewport = {
   themeColor: '#060817',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
 }
 
@@ -56,7 +54,7 @@ export default function RootLayout({
             id="sw-register"
             dangerouslySetInnerHTML={{
               __html:
-                "if (typeof navigator.serviceWorker !== 'undefined') { navigator.serviceWorker.register('/sw.js', { scope: '/' }) }",
+                "if (typeof navigator.serviceWorker !== 'undefined') { navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {}) }",
             }}
           />
         )}

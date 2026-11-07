@@ -232,8 +232,19 @@ function useGrabControls(gesture: React.RefObject<Gesture>) {
       g.pendingZoom *= Math.exp(clamp(e.deltaY, -120, 120) * 0.0015)
     }
 
+    const clear = () => {
+      pointers.clear()
+      powerPress = null
+      g.dragging = false
+      g.spinYaw = g.spinPolar = 0
+      g.pendingYaw = g.pendingPolar = 0
+      g.pendingZoom = 1
+      releaseCursor()
+      if (state.tether.dragging) cancelTether()
+    }
     const onContextMenu = (e: Event) => e.preventDefault()
 
+    window.addEventListener('blur', clear)
     window.addEventListener('pointerdown', onDown)
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
@@ -241,6 +252,7 @@ function useGrabControls(gesture: React.RefObject<Gesture>) {
     el.addEventListener('wheel', onWheel, { passive: false })
     el.addEventListener('contextmenu', onContextMenu)
     return () => {
+      window.removeEventListener('blur', clear)
       window.removeEventListener('pointerdown', onDown)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)

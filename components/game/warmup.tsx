@@ -1,7 +1,8 @@
 'use client'
 
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
+import type { Group } from 'three'
 
 /**
  * Renders its children for a few frames, shrunk inside the planet where they're hidden,
@@ -9,11 +10,11 @@ import { useFrame } from '@react-three/fiber'
  * causing a hitch mid-game.
  */
 export function Warmup({ children, frames = 30 }: { children: ReactNode; frames?: number }) {
-  const [done, setDone] = useState(false)
+  const group = useRef<Group>(null)
   const count = useRef(0)
   useFrame(() => {
-    if (!done && ++count.current >= frames) setDone(true)
+    if (group.current && ++count.current >= frames) group.current.visible = false
   })
-  if (done) return null
-  return <group scale={0.001}>{children}</group>
+  // Keep materials mounted: unmounting disposes their shader programs and defeats warmup.
+  return <group ref={group} scale={0.001}>{children}</group>
 }
