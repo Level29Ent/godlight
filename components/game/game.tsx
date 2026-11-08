@@ -13,6 +13,7 @@ import { Autosave, ContinueButton } from './save-runtime'
 import { LocalProgress } from './local-progress'
 import { CosmicCouncil } from './cosmic-council'
 import { RenderBudget } from './render-budget'
+import { interstitialAtGameOver } from '@/lib/game/monetization'
 import { recordCrash } from '@/lib/game/crash-log'
 
 const SaveMenu = dynamic(() => import('./save-menu').then(module => module.SaveMenu), { ssr: false })
@@ -120,6 +121,7 @@ function TitleScreen({ onOpenSaves }: { onOpenSaves: () => void }) {
 }
 
 function GameOver({ onOpenSaves }: { onOpenSaves: () => void }) {
+  const [restarting, setRestarting] = useState(false)
   const gameOver = useGame((s) => s.gameOver)
   const harvests = useGame((s) => s.harvests)
   if (!gameOver) return null
@@ -131,13 +133,20 @@ function GameOver({ onOpenSaves }: { onOpenSaves: () => void }) {
       </p>
       <button
         type="button"
-        onClick={resetGame}
+        disabled={restarting}
+        onClick={async () => {
+          if (restarting) return
+          setRestarting(true)
+          try { await interstitialAtGameOver(); resetGame() }
+          finally { setRestarting(false) }
+        }}
         className="font-display mt-8 rounded-full bg-[#f5c451] px-8 py-3 font-semibold text-[#1a1406] transition hover:scale-105"
       >
-        Begin anew
+        {restarting ? 'Returning to your world…' : 'Begin anew'}
       </button>
       <button
         type="button"
+        disabled={restarting}
         onClick={onOpenSaves}
         className="font-display mt-3 rounded-full border border-[#f5c451]/40 px-8 py-2.5 text-sm font-semibold text-[#f5c451] transition hover:bg-[#f5c451]/10"
       >

@@ -131,6 +131,11 @@ export function unlockAudio() {
   if (settings.music) startMusic()
 }
 
+/** Mute every game bus during a native full-screen ad without changing user settings. */
+export function setAdAudioMuted(muted: boolean) {
+  if (ctx && master) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02)
+}
+
 // ---------- settings ----------
 
 function emitSettings() {
