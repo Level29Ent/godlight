@@ -10,10 +10,11 @@ import { Warmup } from './warmup'
 
 export function Buildings() {
   const buildings = useGame((s) => s.buildings)
+  const culture = useGame(s => s.cosmos.commandment)
   return (
     <group>
       {buildings.map((b) => (
-        <BuildingMesh key={b.id} b={b} />
+        <BuildingMesh key={b.id} b={b} culture={culture} />
       ))}
       <Warmup>
         {WARM_BUILDINGS.map((b) => (
@@ -42,7 +43,7 @@ const WARM_BUILDINGS: Building[] = (['house', 'farm', 'temple', 'well'] as const
 
 const CHARCOAL = new Color('#2d2826')
 
-function BuildingMesh({ b }: { b: Building }) {
+function BuildingMesh({ b, culture = null }: { b: Building; culture?: 'peace' | 'trial' | null }) {
   const inner = useRef<Group>(null)
   const scaffold = useRef<Group>(null)
   const { position, quaternion } = useMemo(
@@ -70,6 +71,12 @@ function BuildingMesh({ b }: { b: Building }) {
 
   return (
     <group position={position} quaternion={quaternion}>
+      {culture && <group position={[0, 0.55, 0]}>
+        <mesh raycast={() => null}>
+          {culture === 'peace' ? <torusGeometry args={[0.08, 0.02, 4, 12]} /> : <coneGeometry args={[0.08, 0.25, 4]} />}
+          <meshBasicMaterial color={culture === 'peace' ? '#a5ffe1' : '#ff596b'} />
+        </mesh>
+      </group>}
       <group ref={inner}>
         {b.type === 'house' && <House wall={wallMat} />}
         {b.type === 'temple' && <Temple wall={wallMat} b={b} />}

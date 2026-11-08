@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Autosave, ContinueButton } from './save-runtime'
 import { LocalProgress } from './local-progress'
+import { CosmicCouncil } from './cosmic-council'
 import { RenderBudget } from './render-budget'
 import { recordCrash } from '@/lib/game/crash-log'
 
@@ -50,6 +51,7 @@ export default function Game() {
         <Scene batterySaver={batterySaver} />
       </Canvas>
       <Hud onOpenSaves={openSaves} />
+      <CosmicCouncil />
       <TitleScreen onOpenSaves={openSaves} />
       <GameOver onOpenSaves={openSaves} />
       {savesOpen && <SaveMenu open onClose={closeSaves} />}

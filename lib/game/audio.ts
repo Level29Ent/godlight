@@ -213,6 +213,7 @@ interface NoiseOpts {
   dur: number
   gain: number
   wet?: number
+  dest?: AudioNode
 }
 
 function noise(o: NoiseOpts) {
@@ -231,7 +232,7 @@ function noise(o: NoiseOpts) {
   g.gain.setValueAtTime(0.0001, t)
   g.gain.exponentialRampToValueAtTime(o.gain, t + attack)
   g.gain.exponentialRampToValueAtTime(0.0001, t + attack + o.dur)
-  src.connect(f).connect(g).connect(sfxBus)
+  src.connect(f).connect(g).connect(o.dest ?? sfxBus)
   if (o.wet) {
     const s = ctx.createGain()
     s.gain.value = o.wet
@@ -458,6 +459,54 @@ export function setLoop(name: LoopName, active: boolean) {
   if (Math.abs(loop.gain.gain.value - target) > 0.001) loop.gain.gain.setTargetAtTime(target, ctx.currentTime, active ? 0.12 : 0.3)
 }
 
+// ---------- adaptive soundscape (one persistent, bounded set of nodes) ----------
+export type Soundscape = 'peace' | 'storm' | 'wrath' | 'disaster'
+let soundscape: Soundscape = 'peace'
+let civilizationEra = 0
+let choirBus: GainNode | null = null
+let windBus: GainNode | null = null
+let choirFilter: BiquadFilterNode | null = null
+
+export function setSoundscape(mode: Soundscape, era: number) {
+  if (mode === soundscape && civilizationEra === era) return
+  soundscape = mode
+  civilizationEra = era
+  applySoundscape()
+}
+function applySoundscape() {
+  if (!ctx || !choirBus || !windBus || !choirFilter) return
+  const tension = soundscape === 'disaster' ? 1 : soundscape === 'wrath' ? 0.8 : soundscape === 'storm' ? 0.5 : 0
+  choirBus.gain.setTargetAtTime(0.006 + tension * 0.045 + civilizationEra * 0.001, ctx.currentTime, 1.5)
+  windBus.gain.setTargetAtTime(0.012 + tension * 0.045, ctx.currentTime, 1.2)
+  choirFilter.frequency.setTargetAtTime(500 + tension * 1300 + civilizationEra * 60, ctx.currentTime, 1.5)
+}
+function buildSoundscape() {
+  if (!ctx || choirBus) return
+  choirBus = ctx.createGain(); choirBus.gain.value = 0
+  choirBus.connect(musicBus)
+  choirFilter = ctx.createBiquadFilter(); choirFilter.type = 'bandpass'; choirFilter.Q.value = 1.2
+  choirFilter.connect(choirBus)
+  for (const note of [48, 55, 60]) for (const detune of [-9, 9]) {
+    const voice = ctx.createOscillator()
+    voice.type = 'triangle'; voice.frequency.value = midi(note); voice.detune.value = detune
+    voice.connect(choirFilter); voice.start()
+  }
+  windBus = ctx.createGain(); windBus.gain.value = 0; windBus.connect(musicBus)
+  const wind = ctx.createBufferSource(); wind.buffer = noiseBuffer; wind.loop = true
+  const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 450
+  wind.connect(filter).connect(windBus); wind.start()
+  applySoundscape()
+}
+function soundscapePulse() {
+  if (!ctx || !settings.music || document.hidden || ctx.state !== 'running') return
+  if (soundscape !== 'peace') {
+    const urgent = soundscape === 'disaster' || soundscape === 'wrath'
+    tone({ freq: urgent ? 80 : 55, to: 30, dur: 0.45, gain: urgent ? 0.14 : 0.06, dest: musicBus })
+    noise({ type: 'lowpass', freq: 180, dur: 0.65, gain: urgent ? 0.05 : 0.025, dest: musicBus })
+  }
+  melodyNote()
+}
+
 // ---------- generative ambient music ----------
 
 const CHORDS = [
@@ -508,7 +557,7 @@ function padChord(notes: number[]) {
 }
 
 function melodyNote() {
-  if (!ctx || Math.random() > 0.42) return
+  if (!ctx || ctx.state !== 'running' || document.hidden || Math.random() > 0.42) return
   const idx = PENTATONIC.indexOf(lastMelodyNote)
   const step = Math.floor(Math.random() * 5) - 2
   const next = PENTATONIC[Math.max(0, Math.min(PENTATONIC.length - 1, idx + step))]
@@ -520,15 +569,18 @@ function melodyNote() {
 
 function startMusic() {
   if (!ctx || musicTimer) return
+  buildSoundscape()
   musicBus.gain.cancelScheduledValues(ctx.currentTime)
   musicBus.gain.setTargetAtTime(MUSIC_LEVEL, ctx.currentTime, 1.5)
   const playBar = () => {
-    padChord(CHORDS[chordIndex % CHORDS.length])
+    if (!ctx || ctx.state !== 'running' || document.hidden) return
+    const chord = CHORDS[chordIndex % CHORDS.length]
+    padChord(soundscape === 'peace' ? chord : chord.map((n, i) => i === 3 ? n - 1 : n))
     chordIndex++
   }
   playBar()
   musicTimer = setInterval(playBar, BAR * 1000)
-  melodyTimer = setInterval(melodyNote, (BAR / 4) * 1000)
+  melodyTimer = setInterval(soundscapePulse, (BAR / 4) * 1000)
 }
 
 function stopMusic() {
