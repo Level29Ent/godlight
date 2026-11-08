@@ -10,7 +10,8 @@ import { Bloom, EffectComposer, ToneMapping, Vignette } from '@react-three/postp
 import { ToneMappingMode } from 'postprocessing'
 import { DirectionalLight, Group, Vector3 } from 'three'
 import { PLANET_RADIUS } from '@/lib/game/planet'
-import { state, tick } from '@/lib/game/store'
+import { state, tick, useGame } from '@/lib/game/store'
+import { ColonySurface } from './colony-surface'
 import { Planet } from './planet'
 import { Followers } from './followers'
 import { Invaders } from './invaders'
@@ -143,6 +144,8 @@ function ShakeGroup({ children }: { children: React.ReactNode }) {
 }
 
 export function Scene({ batterySaver = false }: { batterySaver?: boolean }) {
+  const colony = useGame(s => s.cosmos.activeColony)
+  if (colony !== null) return <><color attach="background" args={['#060817']} /><Simulation /><ColonySurface index={colony} /></>
   return (
     <>
       <color attach="background" args={['#060817']} />
