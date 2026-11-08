@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { Group } from 'three'
+import { Group, Vector3 } from 'three'
 import { state, useGameVersion } from '@/lib/game/store'
 import { DESTINATIONS } from '@/lib/game/cosmos'
 
@@ -22,7 +22,7 @@ export function ColonySurface({ index }: { index: number }) {
     <ambientLight intensity={1.4} /><directionalLight position={[5, 8, 6]} intensity={2} />
     <mesh><sphereGeometry args={[4, 40, 24]} /><meshStandardMaterial color={color} flatShading roughness={1} /></mesh>
     {state.cosmos.shield > 0 && <mesh><sphereGeometry args={[4.5, 20, 12]} /><meshBasicMaterial color="#8fddff" wireframe transparent opacity={0.12} depthWrite={false} /></mesh>}
-    {Array.from({ length: 12 }, (_, i) => <mesh key={i} position={[Math.sin(i * 2.399) * 3, 0.6 + (i % 3) * 0.4, Math.cos(i * 2.399) * 3]} rotation={[0, i, 0]}><icosahedronGeometry args={[0.45 + (i % 3) * 0.12, 0]} /><meshStandardMaterial color={index === 2 ? '#4d999c' : '#827a72'} /></mesh>)}
+    {Array.from({ length: 12 }, (_, i) => <mesh key={i} position={new Vector3(Math.sin(i * 2.399), 0.3 + (i % 3) * 0.5, Math.cos(i * 2.399)).normalize().multiplyScalar(4).toArray() as [number, number, number]} rotation={[0, i, 0]}><icosahedronGeometry args={[0.45 + (i % 3) * 0.12, 0]} /><meshStandardMaterial color={index === 2 ? '#4d999c' : '#827a72'} /></mesh>)}
     {colony.stage === 'settled' && <group position={[0, 3.8, 0]}>
       <mesh position={[0, 0.2, 0]}><cylinderGeometry args={[0.8, 0.9, 0.4, 8]} /><meshStandardMaterial color="#e5eced" /></mesh>
       <mesh position={[0, 0.7, 0]}><coneGeometry args={[0.35, 0.9, 8]} /><meshStandardMaterial color="#e6bb66" /></mesh>
