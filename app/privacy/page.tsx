@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'How Godlight collects, uses, and protects your information on the web and in the iOS and Android apps.',
 }
 
-const LAST_UPDATED = 'October 16, 2026'
+const LAST_UPDATED = 'November 8, 2026'
 
 type Section = { title: string; body: React.ReactNode }
 
@@ -53,7 +53,7 @@ const sections: Section[] = [
     body: (
       <>
         <p>
-          The iOS and Android apps offer optional reward ads provided by Google AdMob. Ads only play when you tap to watch one.
+          The iOS and Android apps offer optional reward ads provided by Google AdMob. In the iOS app, an occasional interstitial ad may also appear after game over when you choose to begin anew. These interstitials do not grant rewards and do not appear during active play.
           The website does not show ads.
         </p>
         <p>
@@ -101,7 +101,7 @@ const sections: Section[] = [
       <ul>
         <li>To save your progress and let you continue on any device you sign in on.</li>
         <li>To provide rewards and unlock purchases you have made.</li>
-        <li>To show optional reward ads in the apps.</li>
+        <li>To show optional reward ads in the apps and occasional between-game interstitials in the iOS app.</li>
         <li>To understand how the game is used and fix problems.</li>
       </ul>
     ),

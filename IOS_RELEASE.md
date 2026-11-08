@@ -20,17 +20,40 @@ The existing Capacitor shell loads the solo game from `https://godlight.app`. Us
 and your Apple developer account. Native build/device verification has not been
 performed in the Linux coding environment.
 
-The repository currently uses Google's sample iOS AdMob application ID in
-`ios/App/App/Info.plist`. Keep sample IDs for development. Before monetized release,
-replace that with your own AdMob iOS application ID, set
-`NEXT_PUBLIC_ADMOB_REWARDED_IOS` to your own rewarded ad unit ID, rebuild the web app,
-and sync/rebuild the native app. These are identifiers, not guarantees of ad fill
-or earnings. Do not click live ads while testing.
+The supplied iOS AdMob app ID is now configured in `ios/App/App/Info.plist`:
+`ca-app-pub-9730543201329278~2200868832`. The regular **interstitial** unit is
+`ca-app-pub-9730543201329278/6555046817`; it is not a rewarded ad unit.
+
+Interstitials preload only after the existing consent/ATT initialization permits
+ads, only on native iOS, and never for known supporters. They may present only
+when **Begin anew** is selected after game over, after a four-minute session grace
+period and with a four-minute cooldown between shown ads. No ready ad/no fill
+means immediate restart without waiting for a load or presenting it later.
+Game simulation is paused and all game audio is muted until dismissal/failure.
+Listeners are awaited before showing and cleaned up afterward. Loading saves,
+launching the app and active gameplay never trigger this interstitial.
+
+Web bundles built outside production Vercel deployment mode use Google's iOS
+interstitial test unit. **The native shell currently points to the production
+website even in a Debug build.** For native development, point a local-only
+Capacitor configuration at the PR preview, or register the physical iPhone as a
+test device in AdMob before running against production. Do not click live ads.
+Missing `NEXT_PUBLIC_VERCEL_ENV=production` fails safely to test ads, not live ads;
+check build-time system environment availability for the monetized release.
+
+The native app must be rebuilt/signed/released on macOS for the Info.plist app ID
+change to take effect. A web deployment alone does not update the installed iOS
+binary. Android and Safari remain unchanged. The previous rewarded units stay
+separate: set `NEXT_PUBLIC_ADMOB_REWARDED_IOS` to a genuine rewarded unit if you
+also want monetized rewards; do not reuse the interstitial ID there.
 
 Complete the AdMob consent/privacy configuration, privacy policy and App Store
 privacy declarations for the actual data collected. Verify consent, denied ATT,
 no-fill, cancellation, and reward completion on-device before release.
 Existing optional solo rewards and the consent check remain unchanged.
+Test interstitial dismissal, no fill, presentation failure, supporter exclusion,
+ATT denial, consent denial and repeat restarts on a real iPhone. No native SDK
+build, ad request or impression has been verified by the coding sandbox.
 
 References:
 - https://developers.google.com/admob/ios/rewarded
@@ -38,11 +61,8 @@ References:
 
 ## Local validation and outstanding release checks
 
-Run `node --experimental-strip-types --test tests/*.test.mjs` and
-`pnpm exec tsc --noEmit`. Known existing root `hud.tsx` TypeScript errors and the
-previous Next.js security warning need resolution before release. Browser and
-native iPhone verification remain required; removing multiplayer does not resolve
-those earlier release blockers.
+Run `pnpm test`, `pnpm typecheck` and `pnpm build`. Interstitial unit tests use a
+fake native bridge; they do not request ads or prove iPhone SDK behavior.
 
 ## Gameplay and compact HUD follow-up
 

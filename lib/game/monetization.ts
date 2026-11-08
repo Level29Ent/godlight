@@ -2,7 +2,8 @@ import { useSyncExternalStore } from 'react'
 import { Capacitor } from '@capacitor/core'
 import type { PurchasesPackage } from '@revenuecat/purchases-capacitor'
 import { grantBoost, grantFaith, say, setPaused, state } from './store'
-import { sfx } from './audio'
+import { sfx, setAdAudioMuted } from './audio'
+import { createInterstitialController } from './interstitial'
 
 export const SUPPORTER_ENTITLEMENT = 'supporter'
 export const AD_COOLDOWN_MS = 4 * 60 * 1000
@@ -35,7 +36,7 @@ interface MonetizationState {
   adsReady: boolean
   storeReady: boolean
   supporter: boolean
-  busy: 'ad' | 'purchase' | 'restore' | null
+  busy: 'ad' | 'interstitial' | 'purchase' | 'restore' | null
   lastRewardAt: number
   price: string | null
 }
@@ -62,6 +63,15 @@ let snapshot: MonetizationState = {
 const listeners = new Set<() => void>()
 let initialized = false
 let supporterPackage: PurchasesPackage | null = null
+let interstitial: ReturnType<typeof createInterstitialController> | null = null
+
+/** Called only after an explicit restart from game over; never on startup or a timer. */
+export async function interstitialAtGameOver() {
+  if (!state.gameOver || snapshot.busy || !interstitial || snapshot.supporter) return
+  update({ busy: 'interstitial' })
+  try { await interstitial.atBreak() }
+  finally { update({ busy: null }) }
+}
 
 function update(patch: Partial<MonetizationState>) {
   snapshot = { ...snapshot, ...patch }
@@ -103,6 +113,25 @@ async function initAds() {
     if (status === 'notDetermined') await AdMob.requestTrackingAuthorization()
   }
   update({ adsReady: true })
+  if (platform() === 'ios') {
+    const { InterstitialAdPluginEvents } = await import('@capacitor-community/admob')
+    interstitial = createInterstitialController({
+      prepare: (adId, test) => AdMob.prepareInterstitial({ adId, isTesting: test }),
+      show: () => AdMob.showInterstitial(),
+      listen: (event, callback) => {
+        if (event === 'dismissed') return AdMob.addListener(InterstitialAdPluginEvents.Dismissed, callback)
+        if (event === 'failed') return AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, callback)
+        return AdMob.addListener(InterstitialAdPluginEvents.Showed, callback)
+      },
+    }, {
+      allowed: () => Capacitor.isNativePlatform() && platform() === 'ios' && snapshot.adsReady && !snapshot.supporter,
+      // Vercel previews and local builds must never request live ads.
+      test: process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV !== 'production',
+      now: () => Date.now(),
+      pause: active => { setPaused(active); setAdAudioMuted(active) },
+    })
+    void interstitial.preload()
+  }
 }
 
 async function initStore() {
