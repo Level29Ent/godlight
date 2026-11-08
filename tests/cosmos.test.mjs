@@ -226,3 +226,13 @@ test('trial culture, artifact bonuses and colony faith compose without duplicate
   c.disaster.resolved = true
   assert.ok(Math.abs(faithMultiplier(c) - 1.2) < 1e-9)
 })
+
+test('unreachable wonder crews are released and not immediately reassigned to the same shore', () => {
+  const s = world()
+  actOnCosmos(s, { type: 'build', blueprint: 'bunker' })
+  const p = s.cosmos.projects[0]
+  assert.ok(p.crew.length)
+  tickCosmos(s, 0.05, { ...hooks(), canReach: () => false })
+  assert.deepEqual(p.crew, [])
+  assert.equal(p.progress, 0)
+})
