@@ -196,7 +196,7 @@ export function protectedAt(c: Cosmos, dir: Vector3) {
 }
 export function alignMiracle(c: Cosmos, good: boolean, strength = 2) { c.alignment = clamp(c.alignment + (good ? strength : -strength), -100, 100) }
 
-export interface CosmicHooks { tell: (text: string) => void; impact: (dir: Vector3, protectedImpact: boolean, kind: 'meteors' | 'flare') => void; death: (f: Follower) => void }
+export interface CosmicHooks { canReach?: (f: Follower, destination: Direction) => boolean; tell: (text: string) => void; impact: (dir: Vector3, protectedImpact: boolean, kind: 'meteors' | 'flare') => void; death: (f: Follower) => void }
 
 /** Runs at simulation cadence with fixed bounded collections; no network, timers or React writes. */
 export function tickCosmos(s: GameState, dt: number, hooks: CosmicHooks) {
@@ -212,8 +212,8 @@ export function tickCosmos(s: GameState, dt: number, hooks: CosmicHooks) {
   }
   for (const p of c.projects) {
     if (p.progress >= 1) continue
-    p.crew = p.crew.filter(id => s.followers.some(f => f.id === id && !f.lost))
-    if (!p.crew.length) p.crew = available(s).slice(0, 2).map(f => f.id)
+    p.crew = p.crew.filter(id => s.followers.some(f => f.id === id && !f.lost && (hooks.canReach?.(f, p.dir) ?? true)))
+    if (!p.crew.length) p.crew = available(s).filter(f => hooks.canReach?.(f, p.dir) ?? true).slice(0, 2).map(f => f.id)
     const working = s.followers.filter(f => p.crew.includes(f.id) && f.burning === 0 && f.scared <= 0 && distance(p.dir, f.dir) < 0.7).length
     p.progress = Math.min(1, p.progress + working * dt / BLUEPRINTS[p.kind].seconds)
     if (p.progress >= 1) { journal(c, `${BLUEPRINTS[p.kind].name} completed.`); hooks.tell(`${BLUEPRINTS[p.kind].name} completed!`); p.crew = [] }

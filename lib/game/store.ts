@@ -1,3 +1,4 @@
+import { createLandNavigator } from './navigation'
 import { actOnCosmos, createCosmos, restoreCosmos, tickCosmos, cosmicDuty, releaseCosmicDuty, cosmicFaith, faithMultiplier, climateCropFactor, alignMiracle, type Cosmos, type CosmosAction } from './cosmos'
 import { useSyncExternalStore } from 'react'
 import { Color, Vector3 } from 'three'
@@ -1495,7 +1496,9 @@ function strike(f: Follower, job: Job, dt: number, targetDir: Vector3, hit: () =
   f.target.copy(targetDir)
   if (surfaceDist(f.dir, targetDir) > 0.2) {
     f.state = 'wander'
-    moveToward(f, targetDir, f.speed * 1.6, dt)
+    if (moveToward(f, targetDir, f.speed * 1.6, dt) && surfaceDist(f.dir, targetDir) > 0.2) {
+      endJob(f, 'No dry route to that opponent. Your follower returns to other work.')
+    }
     return
   }
   f.state = 'build'
@@ -1982,52 +1985,7 @@ export function invasionStatus() {
 
 const tmpAxis = new Vector3()
 const tmpVec = new Vector3()
-const detourAxis = new Vector3()
-
-const DETOURS = [0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.4, -2.4, 3.0, -3.0]
-
-const progress = new WeakMap<Follower, { at: Vector3; t: number; strikes: number }>()
-
-function unstick(f: Follower, dt: number) {
-  let p = progress.get(f)
-  if (!p) {
-    p = { at: f.dir.clone(), t: 0, strikes: 0 }
-    progress.set(f, p)
-  }
-  const wantsToMove = f.state !== 'build' && f.state !== 'pray' && surfaceDist(f.dir, f.target) > 0.15
-  if (!wantsToMove || surfaceDist(f.dir, p.at) > 0.05) {
-    p.at.copy(f.dir)
-    p.t = 0
-    p.strikes = 0
-    return
-  }
-  p.t += dt
-  if (p.t < 2.5) return
-  p.t = 0
-  p.strikes++
-  if (f.job && p.strikes >= 2) {
-    f.job = null
-    f.state = 'idle'
-    say("A follower couldn't reach their task and gave up.", 'info')
-    return
-  }
-  const detour = randomLandDirNear(f.dir, 0.25 + p.strikes * 0.15, false, 20)
-  if (detour) f.target.copy(detour)
-  if (!f.job) setWander(f, 0.3 + p.strikes * 0.15)
-}
-
-/**
- * Walk across the surface toward `target`. Walkers never step into water: when the
- * direct step would get wet they try angled detours along the coast, and stop if none work.
- * Returns true when arrived or blocked.
- */
-function nearestShore(from: Vector3) {
-  for (let ring = 1; ring <= 10; ring++) {
-    const found = randomLandDirNear(from, ring * 0.04, false, 14)
-    if (found) return found
-  }
-  return null
-}
+const navigator = createLandNavigator(isLand)
 
 function stepStraight(w: { dir: Vector3 }, goal: Vector3, step: number) {
   const angle = w.dir.angleTo(goal)
@@ -2037,29 +1995,7 @@ function stepStraight(w: { dir: Vector3 }, goal: Vector3, step: number) {
 }
 
 function moveToward(w: { dir: Vector3 }, target: Vector3, speed: number, dt: number, _avoidWater = true) {
-  const angle = w.dir.angleTo(target)
-  const step = (speed * dt) / PLANET_RADIUS
-  if (!isLand(w.dir)) {
-    // Stranded in water (flood, throw, terrain change): wade straight to the closest shore.
-    stepStraight(w, isLand(target) ? target : nearestShore(w.dir) ?? target, step)
-    return false
-  }
-  if (angle <= step || angle < 1e-4) {
-    if (!isLand(target)) return true
-    w.dir.copy(target)
-    return true
-  }
-  tmpAxis.crossVectors(w.dir, target).normalize()
-  for (const turn of DETOURS) {
-    detourAxis.copy(tmpAxis)
-    if (turn !== 0) detourAxis.applyAxisAngle(w.dir, turn)
-    tmpVec.copy(w.dir).applyAxisAngle(detourAxis, step)
-    if (isLand(tmpVec)) {
-      w.dir.copy(tmpVec).normalize()
-      return false
-    }
-  }
-  return true
+  return navigator.move(w, target, speed, dt) !== 'moving'
 }
 
 function setWander(f: Follower, range = 0.3) {
@@ -2123,7 +2059,7 @@ function decide(f: Follower) {
   if (material && gathering < Math.max(2, Math.ceil(state.followers.length * 0.45)) && Math.random() < 0.55) {
     if (autoGather(f, material)) return
   }
-  const sites = state.buildings.filter((b) => b.progress < 1 && b.burning === 0 && b.builders < 3 && b.short.length === 0)
+  const sites = state.buildings.filter((b) => b.progress < 1 && b.burning === 0 && b.builders < 3 && b.short.length === 0 && !navigator.isUnreachable(f, b.dir))
   if (sites.length > 0 && Math.random() < 0.85) {
     let best: Building | null = null
     let bestD = Infinity
@@ -2191,7 +2127,6 @@ function updateFollowers(dt: number) {
       }
       continue
     }
-    unstick(f, dt)
     f.heat = Math.max(0, f.heat - (f.sunned ? 0 : 1.6) * dt)
     f.sunned = false
     f.jump = Math.max(0, f.jump - dt)
@@ -2240,7 +2175,10 @@ function updateFollowers(dt: number) {
       if (surfaceDist(f.dir, target) > 0.4) {
         f.state = 'wander'
         if (duty?.expedition) stepStraight(f, target, dt * f.speed * 2 / PLANET_RADIUS)
-        else moveToward(f, target, f.speed * 1.8, dt)
+        else if (moveToward(f, target, f.speed * 1.8, dt) && surfaceDist(f.dir, target) > 0.4) {
+          if (duty) releaseCosmicDuty(state.cosmos, f.id)
+          f.state = 'idle'
+        }
       } else { f.state = shelter ? 'pray' : 'build' }
       continue
     }
@@ -2272,7 +2210,11 @@ function updateFollowers(dt: number) {
           break
         }
         if (surfaceDist(f.dir, b.dir) > 0.32) {
-          moveToward(f, f.target, f.speed * 1.2, dt, false)
+          f.target.copy(b.dir)
+          if (moveToward(f, b.dir, f.speed * 1.2, dt) && surfaceDist(f.dir, b.dir) > 0.32) {
+            f.taskId = null
+            f.state = 'idle'
+          }
         } else {
           advanceConstruction(b, buildRate(b), dt)
         }
@@ -2929,6 +2871,7 @@ export function tick(dt: number) {
   if (!playing) { setSoundscape('peace', 0); return }
   state.time += dt
   applyCursor(dt)
+  navigator.beginFrame()
   updateFollowers(dt)
   updateBuildings(dt)
   updateTrees(dt)
@@ -2938,6 +2881,7 @@ export function tick(dt: number) {
   updateTetherPreview()
   updateEffects(dt)
   tickCosmos(state, dt, {
+    canReach: (follower, destination) => !navigator.isUnreachable(follower, new Vector3(...destination)),
     tell: text => say(text),
     death: follower => killFollower(follower, 'A follower succumbed to prolonged climate exposure.'),
     impact: (dir, safe, kind) => {
