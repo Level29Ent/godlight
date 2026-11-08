@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   generator: 'v0.app',
   applicationName: 'Godlight',
   // Verification only. Ad serving waits for a display slot and the web consent setup.
-  other: { 'google-adsense-account': 'ca-pub-9730543201329278' },
+  other: { 'google-adsense-account': 'ca-pub-8022731487137227' },
   appleWebApp: { capable: true, title: 'Godlight', statusBarStyle: 'black-translucent' },
   icons: {
     icon: [
@@ -48,6 +48,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geist.variable} ${cinzel.variable} dark`}>
+      {/* Raw fixed markup prevents React from hoisting the async loader ahead of the pause. */}
+      <head dangerouslySetInnerHTML={{ __html: '<script id="adsense-pause">(window.adsbygoogle=window.adsbygoogle||[]).pauseAdRequests=1;</script><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8022731487137227" crossorigin="anonymous"></script>' }} />
       <body className="font-sans antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
