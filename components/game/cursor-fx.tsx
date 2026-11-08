@@ -5,7 +5,6 @@ import { useFrame } from '@react-three/fiber'
 import {
   AdditiveBlending,
   BoxGeometry,
-  Color,
   DoubleSide,
   Group,
   InstancedMesh,
@@ -15,36 +14,10 @@ import {
   PointLight,
   Vector3,
 } from 'three'
-import { isBuildable, PLANET_RADIUS, surfacePoint } from '@/lib/game/planet'
+import { surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
 import { state } from '@/lib/game/store'
-
-const RING_RADIUS: Record<string, number> = {
-  sun: 1.1,
-  rain: 1.3,
-  lightning: 0.4,
-  meteor: 1.5,
-  house: 0.3,
-  farm: 0.3,
-  temple: 0.42,
-}
-
-const RING_COLOR: Record<string, Color> = {
-  sun: new Color(2.2, 1.7, 0.5),
-  rain: new Color(0.5, 1.2, 2.2),
-  lightning: new Color(1.6, 1.6, 2.6),
-  meteor: new Color(2.6, 0.9, 0.3),
-}
-const OK = new Color(0.4, 2, 0.8)
-const BAD = new Color(2.4, 0.4, 0.3)
-
-function canBuildAt(dir: Vector3) {
-  if (!isBuildable(dir)) return false
-  const isTemple = state.tool === 'temple'
-  return !state.buildings.some(
-    (b) => b.dir.distanceTo(dir) * PLANET_RADIUS < (isTemple || b.type === 'temple' ? 0.8 : 0.55),
-  )
-}
+import { CURSOR_PREVIEWS, canBuildPreview, cursorColor } from '@/lib/game/cursor-preview'
 
 export function CursorFX() {
   const anchor = useRef<Group>(null)
@@ -99,13 +72,15 @@ export function CursorFX() {
     surfacePoint(dir, g.position, 0.04)
     surfaceQuaternion(dir, 0, g.quaternion)
 
-    const isBuild = tool === 'house' || tool === 'farm' || tool === 'temple'
-    const valid = isBuild ? canBuildAt(dir) : true
+    const spec = CURSOR_PREVIEWS[tool]
+    const isBuild = spec.buildingScale !== null
+    const valid = isBuild ? canBuildPreview(dir, tool, state.buildings) : true
+    const color = cursorColor(tool, valid)
     if (ring.current) {
-      const r = RING_RADIUS[tool] ?? 0.5
+      const r = spec.radius
       const pulse = 1 + Math.sin(t * 4) * 0.03
       ring.current.scale.setScalar(r * pulse)
-      ringMat.color.copy(isBuild ? (valid ? OK : BAD) : RING_COLOR[tool])
+      ringMat.color.copy(color)
       ringMat.opacity = cursor.down ? 0.9 : 0.55
       ring.current.rotation.z = t * 0.4
     }
@@ -113,8 +88,8 @@ export function CursorFX() {
     if (preview.current) {
       preview.current.visible = isBuild
       if (isBuild) {
-        previewMat.color.copy(valid ? OK : BAD).multiplyScalar(0.5)
-        const sc = tool === 'temple' ? [0.6, 0.35, 0.6] : tool === 'farm' ? [0.46, 0.05, 0.36] : [0.26, 0.3, 0.24]
+        previewMat.color.copy(color).multiplyScalar(0.5)
+        const sc = spec.buildingScale!
         preview.current.scale.set(sc[0], sc[1], sc[2])
         preview.current.position.y = sc[1] / 2
       }
