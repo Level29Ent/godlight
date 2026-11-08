@@ -1,7 +1,8 @@
+import { actOnCosmos, createCosmos, restoreCosmos, tickCosmos, cosmicDuty, releaseCosmicDuty, cosmicFaith, faithMultiplier, climateCropFactor, alignMiracle, type Cosmos, type CosmosAction } from './cosmos'
 import { useSyncExternalStore } from 'react'
 import { Color, Vector3 } from 'three'
 import { AGES, ROBE_COLORS, SKIN_COLORS, TOOL_BY_ID, nightAmount, type Tool } from './config'
-import { setLoop, sfx, type SfxName } from './audio'
+import { setLoop, setSoundscape, sfx, type SfxName } from './audio'
 import { requestNotificationPermission } from './native'
 import { OBJECTIVES } from './objectives'
 import {
@@ -245,6 +246,7 @@ export interface ParticleRequest {
 }
 
 export interface GameState {
+  cosmos: Cosmos
   started: boolean
   gameOver: boolean
   faith: number
@@ -305,6 +307,7 @@ export const startDir = findStartDir()
 
 function createState(): GameState {
   return {
+    cosmos: createCosmos(),
     started: false,
     gameOver: false,
     faith: 30,
@@ -636,11 +639,19 @@ export function resetGame() {
   notify(true)
 }
 
+export function commandCosmos(action: CosmosAction) {
+  if (paused) return
+  const message = actOnCosmos(state, action)
+  say(message)
+  notify(true)
+}
+
 // ---------- save / load ----------
 
 type V3 = [number, number, number]
 
 export interface SaveData {
+  cosmos?: Cosmos
   v: 1
   faith: number
   ageIndex: number
@@ -677,6 +688,7 @@ export function exportSave(): SaveData {
   const s = state
   return {
     v: 1,
+    cosmos: structuredClone(s.cosmos),
     faith: round(s.faith),
     ageIndex: s.ageIndex,
     time: round(s.time),
@@ -726,6 +738,7 @@ export function importSave(raw: unknown): boolean {
   const fresh = createState()
   Object.assign(state, fresh)
 
+  state.cosmos = restoreCosmos(data.cosmos)
   state.faith = Math.max(0, num(data.faith, 30))
   state.ageIndex = Math.max(0, Math.min(AGES.length - 1, Math.floor(num(data.ageIndex))))
   state.time = num(data.time)
@@ -1346,6 +1359,7 @@ function assignJob(f: Follower, dir: Vector3) {
     const b = state.buildings.find((x) => x.id === f.taskId)
     if (b) b.builders = Math.max(0, b.builders - 1)
   }
+  releaseCosmicDuty(state.cosmos, f.id)
   f.taskId = null
   f.job = {
     kind: plan.kind,
@@ -2129,7 +2143,7 @@ function decide(f: Follower) {
     }
   }
 
-  const prayChance = state.fearTimer > 0 ? 0.8 : f.happiness > 35 ? 0.45 : 0.1
+  const prayChance = state.cosmos.commandment === 'peace' ? 0.6 : state.fearTimer > 0 ? 0.8 : f.happiness > 35 ? 0.45 : 0.1
   if (Math.random() < prayChance) {
     const temples = state.buildings.filter((b) => b.type === 'temple' && b.progress >= 1)
     if (temples.length > 0 && Math.random() < 0.65) {
@@ -2215,6 +2229,21 @@ function updateFollowers(dt: number) {
       continue
     }
 
+    const duty = cosmicDuty(state.cosmos, f.id)
+    const shelter = state.cosmos.disaster && !state.cosmos.disaster.resolved
+      ? state.cosmos.projects.find(p => p.kind === 'bunker' && p.progress >= 1 && new Vector3(...p.dir).distanceTo(f.dir) * PLANET_RADIUS < 6)
+      : null
+    if (duty || shelter) {
+      const target = new Vector3(...(duty?.dir ?? shelter!.dir))
+      f.target.copy(target)
+      f.atTemple = false
+      if (surfaceDist(f.dir, target) > 0.4) {
+        f.state = 'wander'
+        if (duty?.expedition) stepStraight(f, target, dt * f.speed * 2 / PLANET_RADIUS)
+        else moveToward(f, target, f.speed * 1.8, dt)
+      } else { f.state = shelter ? 'pray' : 'build' }
+      continue
+    }
     f.timer -= dt
     if (f.job) {
       runJob(f, dt)
@@ -2311,12 +2340,14 @@ function applyCursor(dt: number) {
     else if (tool === 'bounty') castBounty(dir)
     else if (tool === 'aurora') castAurora()
     else if (tool === 'house' || tool === 'farm' || tool === 'temple' || tool === 'well' || tool === 'monument') placeBuilding(tool, dir)
+    if (state.faith < faithBefore) alignMiracle(state.cosmos, !['lightning', 'meteor', 'quake', 'tornado'].includes(tool), 3)
     if (castSound) sfx(state.faith < faithBefore ? castSound : 'error')
   }
 
   if (!cursor.down) return
 
   if (tool === 'sun') {
+    alignMiracle(state.cosmos, true, dt * 0.15)
     for (const f of state.followers) {
       if (surfaceDist(f.dir, dir) < SUN_RADIUS) {
         if (f.lost) {
@@ -2345,6 +2376,7 @@ function applyCursor(dt: number) {
       }
     }
   } else if (tool === 'rain') {
+    alignMiracle(state.cosmos, true, dt * 0.15)
     for (const f of state.followers) {
       if (surfaceDist(f.dir, dir) < RAIN_RADIUS) {
         if (f.burning > 0) {
@@ -2412,7 +2444,7 @@ function updateBuildings(dt: number) {
     if (b.type === 'farm' && b.progress >= 1) {
       b.moisture = Math.max(0, b.moisture - 0.035 * dt)
       if (b.moisture > 0.05) {
-        b.growth += (0.03 + (b.sunned ? 0.11 : 0)) * dt
+        b.growth += (0.03 + (b.sunned ? 0.11 : 0)) * dt * climateCropFactor(state.cosmos, b.dir)
         if (b.growth >= 1) {
           b.growth = 0
           state.faith += 20
@@ -2565,7 +2597,10 @@ function updateEconomy(dt: number) {
       rate += (f.happiness / 100) * 0.12
     }
   }
-  rate += state.stats.monuments * 1.5
+  rate += state.stats.monuments * 1.5 + cosmicFaith(state.cosmos)
+  rate *= faithMultiplier(state.cosmos)
+  if (state.cosmos.commandment === 'peace') for (const f of state.followers) if (!f.lost) f.happiness = Math.min(100, f.happiness + 0.3 * dt)
+  if (state.cosmos.commandment === 'trial') state.fearTimer = Math.max(state.fearTimer, 0.5)
   if (state.auroraTimer > 0) rate *= 1.5
   if (state.boostTimer > 0) rate *= 2
   state.faithRate = rate
@@ -2878,6 +2913,7 @@ let paused = false
 export function setPaused(value: boolean) {
   paused = value
   if (value) {
+    setSoundscape('peace', 0)
     state.cursor.down = false
     setLoop('sun', false)
     setLoop('rain', false)
@@ -2890,7 +2926,7 @@ export function tick(dt: number) {
   const channeling = playing && state.cursor.down && state.cursor.dir !== null
   setLoop('sun', channeling && state.tool === 'sun')
   setLoop('rain', channeling && state.tool === 'rain')
-  if (!playing) return
+  if (!playing) { setSoundscape('peace', 0); return }
   state.time += dt
   applyCursor(dt)
   updateFollowers(dt)
@@ -2901,6 +2937,16 @@ export function tick(dt: number) {
   updateInvaders(dt)
   updateTetherPreview()
   updateEffects(dt)
+  tickCosmos(state, dt, {
+    tell: text => say(text),
+    death: follower => killFollower(follower, 'A follower succumbed to prolonged climate exposure.'),
+    impact: (dir, safe, kind) => {
+      if (safe) { addShockwave(dir, 2.6, 'gold'); sfx('blessing'); return }
+      if (kind === 'flare') { addShockwave(dir, 3, 'fire'); state.flash.pos.copy(surfacePoint(dir)); state.flash.intensity = 80; sfx('thunder'); return }
+      meteorImpact({ id: uid(), dir, to: surfacePoint(dir), from: dir.clone().multiplyScalar(23), t: 0, duration: 1 })
+    },
+  })
+  setSoundscape(state.cosmos.disaster && !state.cosmos.disaster.resolved ? 'disaster' : state.cosmos.weather.kind !== 'clear' ? 'storm' : state.fearTimer > 5 ? 'wrath' : 'peace', state.ageIndex)
   updateEconomy(dt)
   updateObjectives()
   updateChallenges(dt)

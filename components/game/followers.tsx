@@ -23,6 +23,8 @@ import { beginTether, pokeFollower, state, type Follower, type JobKind } from '@
 
 const MAX = 160
 const FIRE = new Color(3, 1.1, 0.25)
+const PEACE_ROBE = new Color('#d9f4ed')
+const TRIAL_ROBE = new Color('#9f3d50')
 const GLUM = new Color('#6b6f7a')
 const HURT = new Color('#ff5a4a')
 const ZERO = new Matrix4().makeScale(0, 0, 0)
@@ -182,14 +184,14 @@ export function Followers() {
       if (f.burning > 0) {
         c.copy(FIRE).multiplyScalar(0.7 + Math.random() * 0.6)
       } else {
-        c.copy(f.robe)
+        c.copy(state.cosmos.commandment === 'peace' ? PEACE_ROBE : state.cosmos.commandment === 'trial' ? TRIAL_ROBE : f.robe)
         if (f.happiness < 25) c.lerp(GLUM, 0.5)
         if (f.hp < 50) c.lerp(HURT, (50 - f.hp) / 100)
       }
       refs.torso.current!.setColorAt(i, c)
       refs.armL.current!.setColorAt(i, c)
       refs.armR.current!.setColorAt(i, c)
-      const pants = f.burning > 0 ? c : tmp.c.copy(f.robe).multiplyScalar(0.45)
+      const pants = f.burning > 0 ? c : tmp.c.copy(state.cosmos.commandment === 'peace' ? PEACE_ROBE : state.cosmos.commandment === 'trial' ? TRIAL_ROBE : f.robe).multiplyScalar(0.45)
       refs.legL.current!.setColorAt(i, pants)
       refs.legR.current!.setColorAt(i, pants)
       refs.head.current!.setColorAt(i, f.burning > 0 ? FIRE : f.skin)

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Stars } from '@react-three/drei'
+import { LivingCosmos } from './living-cosmos'
 import { SolarSystem } from './solar-system'
 import { CameraRig } from './camera-rig'
 import { Bloom, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing'
@@ -155,6 +156,7 @@ export function Scene({ batterySaver = false }: { batterySaver?: boolean }) {
       <Simulation />
       <ShakeGroup>
         <Planet />
+        <LivingCosmos />
         <Trees />
         <Rocks />
         <Buildings />

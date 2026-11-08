@@ -1,5 +1,7 @@
 # Godlight expansion: implementation status
 
+**Living Cosmos update:** the subsequent expansion adds initial cosmic threats/defenses, champions, wonders, permanent commandments, relic expeditions, regional weather/ecology, autonomous orbital colonies and adaptive synthesized audio. See [Living Cosmos](living-cosmos.md) for implemented rules, limits and verification. The earlier stability-PR inventory below is historical; full terrain-switching planets, tribal warfare and detailed ecology remain outside this initial implementation.
+
 ## This PR: playable, offline-capable foundation
 
 - Stylized solar-system background: sun, eight planets and Saturn's rings; procedural geometry with no texture downloads, hit targets, shadows or extra lights.
