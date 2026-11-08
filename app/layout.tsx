@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   description: 'A god game inspired by Godfinger. Bless your followers with sunlight, nurture crops with rain, and wield lightning on a beautiful 3D planet.',
   generator: 'v0.app',
   applicationName: 'Godlight',
+  // Verification only. Ad serving waits for a display slot and the web consent setup.
+  other: { 'google-adsense-account': 'ca-pub-9730543201329278' },
   appleWebApp: { capable: true, title: 'Godlight', statusBarStyle: 'black-translucent' },
   icons: {
     icon: [
