@@ -79,3 +79,19 @@ Collections are capped (four wonders, two champions, four relics, three colonies
 ## Verification boundaries
 
 Unit/integration coverage includes shield duration/impact boundaries, once-only disaster resolution, local bunker vs global protection, flare effects, blueprint costs/gates/workforce/progress, permanent culture, champion healing/surveys, relic gates/bonuses, climate intervention/crops/ecology, settler transfer/colony economy, malformed/legacy saves and normal simulation integration. Browser-preview checks are recorded on the PR; a passing build alone is not proof of playable advanced-age flows. Native wrappers and cloud/payment/push configuration are unchanged.
+
+## Visitable colony surfaces and dinosaur enemies
+
+The galaxy expansion adds **Explore** for every surveyed destination. It switches the existing WebGL scene to that world's own orbitable 3D surface (no second canvas). **Return home** restores the home view; home simulation, colonies and device/cloud autosaves continue. Surveyed worlds can be inspected before launching; resource-backed rockets and three-settler transfer still require the Age of Stars. Each world has an independent saved development/raid state.
+
+After landing, build one project at a time, up to six of each:
+
+- Farm: 15 timber + 5 stone, 15 seconds. +20% growth and +30% timber output per farm.
+- Habitat: 20 timber + 15 stone, 20 seconds. +4 capacity per habitat above the initial 6-settler capacity (maximum 30).
+- Turret: 10 timber + 25 stone, 18 seconds. Automatically deals 8 damage/second to each attacking dinosaur.
+
+**Hostile dinosaurs inhabit colonized worlds**, not the original home world in this release. Two stylized, animated low-poly dinosaurs approach 60 simulation seconds after settlement, take 20 seconds to reach the base, and each bites for 6 integrity every 2 seconds. Later raids wait at least 120 seconds and never stack while enemies remain; at most four dinosaurs can be restored from a save. Each has 80 HP.
+
+**Smite dinosaurs** costs 15 faith and deals 45 damage to every attacker. Global shields stop bites during their normal duration. **Repair** costs 10 faith + 5 stone and restores 40 integrity (capped at 100). Integrity scales exports, faith and population growth; at zero the colony stops producing until repaired. Settlers are not silently deleted or duplicated by these raids. Kill count, HP, approach progress, construction and integrity persist across loads. Old colonies receive default surfaces on migration.
+
+This is a colony-focused surface mode with orbit controls and strategic development/combat actions, not a cloned full home-world follower sandbox on every planet. Colony settlers are visible aggregate population; there are no individually tetherable colony followers or colony-specific terraforming yet. Existing home-world weather/disasters continue while exploring, so return home to intervene there. No native wrapper, payment, DNS or provider changes are required.

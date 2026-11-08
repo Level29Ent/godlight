@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Autosave, ContinueButton } from './save-runtime'
 import { LocalProgress } from './local-progress'
+import { GalaxyControls } from './galaxy-controls'
 import { CosmicCouncil } from './cosmic-council'
 import { RenderBudget } from './render-budget'
 import { interstitialAtGameOver } from '@/lib/game/monetization'
@@ -21,6 +22,7 @@ const SaveMenu = dynamic(() => import('./save-menu').then(module => module.SaveM
 const cameraPosition = startDir.clone().multiplyScalar(PLANET_RADIUS * 3.8).toArray() as [number, number, number]
 
 export default function Game() {
+  const activeColony = useGame(s => s.cosmos.activeColony)
   const [batterySaver, setBatterySaver] = useState(false)
   const [contextLost, setContextLost] = useState(false)
   useEffect(() => {
@@ -51,8 +53,9 @@ export default function Game() {
         <RenderBudget batterySaver={batterySaver} />
         <Scene batterySaver={batterySaver} />
       </Canvas>
-      <Hud onOpenSaves={openSaves} />
-      <CosmicCouncil />
+      {activeColony === null && <Hud onOpenSaves={openSaves} />}
+      {activeColony === null && <CosmicCouncil />}
+      <GalaxyControls />
       <TitleScreen onOpenSaves={openSaves} />
       <GameOver onOpenSaves={openSaves} />
       {savesOpen && <SaveMenu open onClose={closeSaves} />}

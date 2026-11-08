@@ -1,3 +1,4 @@
+import { createColonySurface, restoreColonySurface, tickColonySurface, COLONY_BUILDINGS, type ColonySurface } from './colony'
 import { Vector3 } from 'three'
 import { elevation, isBuildable, isLand, PLANET_RADIUS } from './planet'
 import type { Follower, GameState } from './store'
@@ -27,8 +28,9 @@ export interface CosmicProject { kind: Blueprint; dir: Direction; progress: numb
 export interface Champion { name: string; role: 'prophet' | 'scholar'; dir: Direction; goal: Direction; pulse: number }
 export interface CosmicDisaster { kind: 'meteors' | 'flare'; remaining: number; duration: number; targets: Direction[]; resolved: boolean }
 export interface Relic { dir: Direction; revealed: boolean; progress: number; crew: number[]; active: boolean }
-export interface Colony { surveyed: boolean; stage: 'unknown' | 'surveyed' | 'launching' | 'settled'; progress: number; population: number; growth: number }
+export interface Colony { surface: ColonySurface; surveyed: boolean; stage: 'unknown' | 'surveyed' | 'launching' | 'settled'; progress: number; population: number; growth: number }
 export interface Cosmos {
+  activeColony: number | null;
   v: 1; rng: number; alignment: number; commandment: Commandment | null
   weather: { kind: Weather; dir: Direction; remaining: number; next: number }
   ecosystem: number; moisture: number; shield: number; disaster: CosmicDisaster | null; nextDisaster: number
@@ -38,6 +40,7 @@ export interface Cosmos {
 export type CosmosAction =
   | { type: 'shield' } | { type: 'commandment'; choice: Commandment }
   | { type: 'build'; blueprint: Blueprint } | { type: 'champion'; role: Champion['role'] }
+  | { type: 'visit'; index: number | null } | { type: 'colony-build'; index: number; kind: keyof typeof COLONY_BUILDINGS } | { type: 'colony-smite'; index: number } | { type: 'colony-repair'; index: number }
   | { type: 'survey' } | { type: 'excavate'; index: number } | { type: 'launch'; index: number }
 
 const unit = (d: Direction) => new Vector3(...d)
@@ -51,10 +54,10 @@ function direction(c: Pick<Cosmos, 'rng'>) {
 }
 export function createCosmos(seed = Math.floor(Math.random() * 0x100000000)): Cosmos {
   const c: Cosmos = {
-    v: 1, rng: seed >>> 0, alignment: 0, commandment: null,
+    activeColony: null, v: 1, rng: seed >>> 0, alignment: 0, commandment: null,
     weather: { kind: 'clear', dir: [0, 1, 0], remaining: 0, next: 45 },
     ecosystem: 65, moisture: 0.6, shield: 0, disaster: null, nextDisaster: 110,
-    projects: [], champions: [], relics: [], colonies: DESTINATIONS.map(() => ({ surveyed: false, stage: 'unknown', progress: 0, population: 0, growth: 0 })),
+    projects: [], champions: [], relics: [], colonies: DESTINATIONS.map(() => ({ surface: createColonySurface(), surveyed: false, stage: 'unknown', progress: 0, population: 0, growth: 0 })),
     survey: 0, history: ['A living cosmos awaits your guidance.'], averted: 0, impacts: 0,
   }
   for (const relic of RELICS) {
@@ -94,6 +97,38 @@ function site(s: GameState): Vector3 | null {
 export function actOnCosmos(s: GameState, action: CosmosAction): string {
   const c = s.cosmos
   if (!s.started || s.gameOver) return 'Begin a living world first.'
+  if (action.type === 'visit') {
+    s.cursor.down = false; s.cursor.pressed = false
+    if (action.index === null) { c.activeColony = null; return 'Returned to the home world.' }
+    if (!Number.isInteger(action.index) || !c.colonies[action.index]?.surveyed) return 'Survey that world before exploring it.'
+    c.activeColony = action.index
+    return `Exploring ${DESTINATIONS[action.index].name}. Home continues in real time.`
+  }
+  if (action.type === 'colony-build' || action.type === 'colony-smite' || action.type === 'colony-repair') {
+    const colony = c.colonies[action.index]
+    if (!colony || colony.stage !== 'settled') return 'Land settlers before developing this world.'
+    const surface = colony.surface
+    if (action.type === 'colony-smite') {
+      if (!surface.dinosaurs.length) return 'No dinosaurs are attacking this colony.'
+      if (!pay(s, 15)) return 'Colony smite costs 15 faith.'
+      for (const d of surface.dinosaurs) d.hp -= 45
+      return 'Lightning strikes the attacking dinosaurs!'
+    }
+    if (action.type === 'colony-repair') {
+      if (surface.integrity >= 100) return 'The colony is already healthy.'
+      if (!pay(s, 10, 0, 5)) return 'Repairs need 10 faith and 5 stone.'
+      surface.integrity = Math.min(100, surface.integrity + 40)
+      return 'Colony repaired by 40 integrity.'
+    }
+    const cost = COLONY_BUILDINGS[action.kind]
+    if (!Object.hasOwn(COLONY_BUILDINGS, action.kind)) return 'Unknown colony building.'
+    if (surface.build) return 'A colony building is already under construction.'
+    const count = action.kind === 'farm' ? surface.farms : action.kind === 'habitat' ? surface.habitats : surface.turrets
+    if (count >= 6) return 'This colony already has the maximum of that building.'
+    if (!pay(s, 0, cost.wood, cost.stone)) return `Needs ${cost.wood} timber and ${cost.stone} stone.`
+    surface.build = { kind: action.kind, remaining: cost.seconds }
+    return `Colony ${action.kind} construction begins.`
+  }
   if (action.type === 'shield') {
     if (!pay(s, 20)) return 'The shield needs 20 faith.'
     c.shield = Math.max(c.shield, 25 + (c.relics[1].progress >= 1 ? 8 : 0))
@@ -180,7 +215,7 @@ export function cosmicDuty(c: Cosmos, id: number): { dir: Direction; expedition:
 export function cosmicFaith(c: Cosmos) {
   let rate = 0
   for (const p of c.projects) if (p.progress >= 1) rate += BLUEPRINTS[p.kind].faith
-  for (const p of c.colonies) if (p.stage === 'settled') rate += p.population * 0.2
+  for (const p of c.colonies) if (p.stage === 'settled') rate += p.population * 0.2 * (p.surface.integrity / 100)
   return rate
 }
 export function faithMultiplier(c: Cosmos) {
@@ -249,10 +284,12 @@ export function tickCosmos(s: GameState, dt: number, hooks: CosmicHooks) {
       p.progress = Math.min(1, p.progress + dt / 30)
       if (p.progress >= 1) { p.stage = 'settled'; journal(c, `${DESTINATIONS[i].name} colony established.`); hooks.tell(`${DESTINATIONS[i].name}: a new world joins your civilization!`) }
     } else if (p.stage === 'settled') {
-      p.growth += dt * (c.ecosystem > 40 ? 1 : 0.5)
-      if (p.growth >= 60 && p.population < 30) { p.population++; p.growth = 0 }
-      s.stone += dt * p.population * 0.008
-      s.wood += dt * p.population * 0.006
+      tickColonySurface(p.surface, dt, c.shield > 0, hooks.tell)
+      const health = p.surface.integrity / 100
+      p.growth += dt * (c.ecosystem > 40 ? 1 : 0.5) * health * (1 + p.surface.farms * 0.2)
+      if (p.growth >= 60 && p.population < 6 + p.surface.habitats * 4) { p.population++; p.growth = 0 }
+      s.stone += dt * p.population * 0.008 * health
+      s.wood += dt * p.population * 0.006 * health * (1 + p.surface.farms * 0.3)
     }
   }
   const w = c.weather
@@ -354,8 +391,9 @@ export function restoreCosmos(raw: unknown): Cosmos {
   fresh.colonies = fresh.colonies.map((p, i) => {
     const saved = Array.isArray(x.colonies) ? x.colonies[i] : null
     if (!saved || !['unknown', 'surveyed', 'launching', 'settled'].includes(saved.stage)) return p
-    return { surveyed: saved.stage !== 'unknown', stage: saved.stage, progress: number(saved.progress, 0, 0, 1), population: saved.stage === 'settled' || saved.stage === 'launching' ? number(saved.population, 3, 3, 30) : 0, growth: number(saved.growth, 0, 0, 60) }
+    return { surface: restoreColonySurface(saved.surface), surveyed: saved.stage !== 'unknown', stage: saved.stage, progress: number(saved.progress, 0, 0, 1), population: saved.stage === 'settled' || saved.stage === 'launching' ? number(saved.population, 3, 3, 30) : 0, growth: number(saved.growth, 0, 0, 60) }
   })
+  fresh.activeColony = typeof x.activeColony === 'number' && Number.isInteger(x.activeColony) && fresh.colonies[x.activeColony]?.surveyed ? x.activeColony : null
   if (x.disaster && ['meteors', 'flare'].includes(x.disaster.kind) && Array.isArray(x.disaster.targets)) fresh.disaster = { kind: x.disaster.kind, remaining: number(x.disaster.remaining, 25, -3, 25), duration: 25, targets: x.disaster.targets.length ? x.disaster.targets.slice(0, 3).map(dir) : [[0, 1, 0]], resolved: x.disaster.resolved === true }
   if (Array.isArray(x.history)) fresh.history = x.history.filter(t => typeof t === 'string').slice(-8).map(t => t.slice(0, 160))
   return fresh

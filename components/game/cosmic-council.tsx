@@ -128,10 +128,11 @@ function CouncilContent() {
     </section>
     <section className={card} aria-labelledby="cosmic-galaxy">
       <h3 id="cosmic-galaxy" className="font-display text-lg">Galaxy colonies</h3>
-      <p className="text-xs text-[#bfcde1]">Survey, then launch rockets in the Age of Stars. Three settlers leave your home world. Colonies grow independently to 30 residents and send faith, timber and stone. These are autonomous orbital outposts, not full terrain-switching worlds.</p>
+      <p className="text-xs text-[#bfcde1]">Survey, then launch rockets in the Age of Stars. Three settlers leave your home world. Colonies grow independently to 30 residents and send faith, timber and stone. Visit each surveyed surface to orbit its terrain. Settled worlds support farms, habitats, turrets and hostile dinosaur raids; repair damaged colonies to restore their output.</p>
       {c.colonies.map((p, i) => <div key={i} className="space-y-2 border-t border-white/10 pt-2 text-xs">
         <p className="font-semibold">{DESTINATIONS[i].name} · {DESTINATIONS[i].biome}</p>
-        <p>{p.stage === 'unknown' ? 'Uncharted · survey to reveal' : p.stage === 'launching' ? `Rocket in flight · ${percent(p.progress)}` : p.stage === 'settled' ? `${p.population} settlers · +${(p.population * 0.2).toFixed(1)} faith/s` : 'Survey complete'}</p>
+        <p>{p.stage === 'unknown' ? 'Uncharted · survey to reveal' : p.stage === 'launching' ? `Rocket in flight · ${percent(p.progress)}` : p.stage === 'settled' ? `${p.population} settlers · +${(p.population * 0.2 * p.surface.integrity / 100).toFixed(1)} faith/s` : 'Survey complete'}</p>
+        {p.surveyed && <button type="button" className={button} onClick={() => commandCosmos({ type: 'visit', index: i })}>Explore {DESTINATIONS[i].name}</button>}
         {p.stage === 'surveyed' && <button type="button" className={button} disabled={state.ageIndex < 5 || !canPay(DESTINATIONS[i].faith, DESTINATIONS[i].wood, DESTINATIONS[i].stone)} onClick={() => commandCosmos({ type: 'launch', index: i })}>Launch · {DESTINATIONS[i].faith} faith · {DESTINATIONS[i].wood} timber · {DESTINATIONS[i].stone} stone · 3 settlers</button>}
       </div>)}
     </section>
