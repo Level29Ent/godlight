@@ -2,8 +2,8 @@
 
 ## Included in this change
 
-- Publisher verification meta tag: `google-adsense-account=ca-pub-8022731487137227`.
-- Root seller declaration at `/ads.txt`: `google.com, pub-8022731487137227, DIRECT, f08c47fec0942fa0`.
+- Publisher verification meta tag: `google-adsense-account=ca-pub-9730543201329278`.
+- Root seller declaration at `/ads.txt`: `google.com, pub-9730543201329278, DIRECT, f08c47fec0942fa0`.
 - The owner-supplied async AdSense verification script is included in the document head. `pauseAdRequests=1` is set before it; do not resume requests until the web CMP and placements are reviewed. The Google script is still a third-party network request. No ad units or automatic ad-request resumption are added. Native AdMob/RevenueCat are unchanged. The existing privacy policy's statement that the website does not show ads remains accurate until ad serving is implemented.
 
 The publisher ID is a public identifier, not a private credential. Never supply account passwords or API credentials in chat or source files.
