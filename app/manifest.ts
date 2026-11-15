@@ -1,3 +1,4 @@
+export const dynamic = 'force-static';
 import type { MetadataRoute } from 'next'
 
 const iconSizes = [72, 96, 128, 144, 152, 192, 384, 512]
