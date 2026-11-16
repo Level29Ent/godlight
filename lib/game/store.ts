@@ -1,3 +1,4 @@
+import { validSaveStructure } from './save-validation'
 import { beginUpgrade, tickUpgrades, restoreUpgrade, upgradeLevel, housingCapacity, farmGrowthMultiplier, wellIrrigation, UPGRADE_TYPES, type BuildingUpgrade } from './upgrades'
 import { createWildlife, restoreWildlife, tickWildlife, type Wildlife } from './wildlife'
 import { inspectionTitle, type CareIssue, type Inspection } from './world-care'
@@ -818,16 +819,18 @@ export interface SaveData {
   invasionTimer?: number
   boostTimer?: number
   auroraTimer?: number
-  followers: { id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number; j?: [JobKind, V3] }[]
-  buildings: { u?: BuildingUpgrade; t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
-  trees: { d: V3; sz: number; k: 0 | 1; c: number; y: number }[]
+  fearTimer?: number
+  followers: { hp?: number; fire?: number; heat?: number; scared?: number; from?: V3; lost?: boolean; id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number; j?: [JobKind, V3] }[]
+  buildings: { fire?: number; u?: BuildingUpgrade; t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
+  trees: { fire?: number; heat?: number; d: V3; sz: number; k: 0 | 1; c: number; y: number }[]
 }
 
 const round = (n: number) => Math.round(n * 1e4) / 1e4
 const packV3 = (v: Vector3): V3 => [round(v.x), round(v.y), round(v.z)]
 const unpackV3 = (a: unknown) => {
   const arr = Array.isArray(a) ? a : []
-  const v = new Vector3(Number(arr[0]) || 0, Number(arr[1]) || 0, Number(arr[2]) || 0)
+  const component = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? Math.max(-1e6, Math.min(1e6, v)) : 0
+  const v = new Vector3(component(arr[0]), component(arr[1]), component(arr[2]))
   return v.lengthSq() > 0 ? v.normalize() : startDir.clone()
 }
 const num = (n: unknown, fallback = 0) => (typeof n === 'number' && Number.isFinite(n) ? n : fallback)
@@ -858,8 +861,10 @@ export function exportSave(): SaveData {
     invasionTimer: round(Math.max(s.invasionTimer, 45)),
     boostTimer: round(s.boostTimer),
     auroraTimer: round(s.auroraTimer),
+    fearTimer: round(s.fearTimer),
     followers: s.followers.map((f) => ({
       id: f.id,
+      hp: round(f.hp), fire: round(f.burning), heat: round(f.heat), scared: round(f.scared), from: packV3(f.scareFrom), lost: f.lost,
       d: packV3(f.dir),
       h: round(f.happiness),
       r: f.robe.getHexString(),
@@ -871,6 +876,7 @@ export function exportSave(): SaveData {
     buildings: s.buildings.map((b) => ({
       ...(b.upgrade ? { u: { ...b.upgrade } } : {}),
       t: b.type,
+      fire: round(b.burning),
       d: packV3(b.dir),
       y: round(b.yaw),
       p: round(b.progress),
@@ -878,7 +884,7 @@ export function exportSave(): SaveData {
       m: round(b.moisture),
       g: round(b.growth),
     })),
-    trees: s.trees.map((t) => ({ d: packV3(t.dir), sz: round(t.size), k: t.kind, c: round(t.charred), y: round(t.yaw) })),
+    trees: s.trees.map((t) => ({ fire: round(t.burning), heat: round(t.heat), d: packV3(t.dir), sz: round(t.size), k: t.kind, c: round(t.charred), y: round(t.yaw) })),
   }
 }
 
@@ -886,7 +892,7 @@ const BUILDING_TYPES: BuildingType[] = ['house', 'farm', 'temple', 'well', 'monu
 const JOB_KINDS: JobKind[] = ['chop', 'mine', 'farm', 'build', 'pray', 'fight', 'guard']
 
 export function importSave(raw: unknown): boolean {
-  if (!raw || typeof raw !== 'object' || (raw as SaveData).v !== 1) return false
+  if (!validSaveStructure(raw)) return false
   const data = raw as SaveData
   invasionActive = false
   setPaused(false, 'photo')
@@ -896,12 +902,12 @@ export function importSave(raw: unknown): boolean {
   state.cosmos = restoreCosmos(data.cosmos)
   state.faith = Math.max(0, num(data.faith, 30))
   state.ageIndex = Math.max(0, Math.min(AGES.length - 1, Math.floor(num(data.ageIndex))))
-  state.time = num(data.time)
+  state.time = Math.max(0, num(data.time))
   state.living = restoreLiving(data.living, state.ageIndex, state.time)
   state.wildlife = restoreWildlife(data.wildlife)
   state.chronicle = restoreChronicle(data.chronicle, state.time, state.ageIndex, state.cosmos.averted, state.cosmos.impacts)
   state.harvests = num(data.harvests)
-  state.tool = data.tool in TOOL_BY_ID && TOOL_BY_ID[data.tool].unlockAge <= state.ageIndex ? data.tool : 'sun'
+  state.tool = Object.hasOwn(TOOL_BY_ID, data.tool) && TOOL_BY_ID[data.tool].unlockAge <= state.ageIndex ? data.tool : 'sun'
   state.objectiveIndex = Math.max(0, Math.min(OBJECTIVES.length, Math.floor(num(data.objectiveIndex))))
   state.challengesWon = num(data.challengesWon)
   state.challengeTimer = num(data.challengeTimer, 60)
@@ -914,6 +920,7 @@ export function importSave(raw: unknown): boolean {
   state.invasionTimer = Math.max(45, num(data.invasionTimer, 150))
   state.boostTimer = Math.max(0, Math.min(3600, num(data.boostTimer)))
   state.auroraTimer = Math.max(0, Math.min(30, num(data.auroraTimer)))
+  state.fearTimer = Math.max(0, Math.min(120, num(data.fearTimer)))
   state.night = nightAmount(state.time)
   state.wasNight = state.night > 0.5
 
@@ -927,14 +934,20 @@ export function importSave(raw: unknown): boolean {
   }
 
   let maxId = 0
-  state.followers = (Array.isArray(data.followers) ? data.followers : []).map((f) => {
+  state.followers = (Array.isArray(data.followers) ? data.followers : []).filter(f => num(f.hp, 100) > 0).map((f) => {
     const follower = makeFollower(unpackV3(f.d))
     if (Number.isInteger(f.id)) follower.id = f.id
     maxId = Math.max(maxId, follower.id)
-    follower.happiness = num(f.h, 60)
+    follower.happiness = Math.max(0, Math.min(100, num(f.h, 60)))
+    follower.hp = Math.max(0, Math.min(100, num(f.hp, 100)))
+    follower.burning = Math.max(0, Math.min(6, num(f.fire)))
+    follower.heat = Math.max(0, Math.min(20, num(f.heat)))
+    follower.scared = Math.max(0, Math.min(120, num(f.scared)))
+    follower.scareFrom = unpackV3(f.from)
+    follower.lost = f.lost === true
     if (/^[0-9a-f]{6}$/i.test(String(f.r))) follower.robe.set(`#${f.r}`)
     if (/^[0-9a-f]{6}$/i.test(String(f.s))) follower.skin.set(`#${f.s}`)
-    follower.speed = num(f.sp, follower.speed)
+    follower.speed = Math.max(0.1, Math.min(3, num(f.sp, follower.speed)))
     follower.phase = num(f.ph, follower.phase)
     if (Array.isArray(f.j) && JOB_KINDS.includes(f.j[0])) {
       const jobDir = unpackV3(f.j[1])
@@ -945,14 +958,15 @@ export function importSave(raw: unknown): boolean {
   nextId = Math.max(nextId, maxId + 1)
 
   state.buildings = (Array.isArray(data.buildings) ? data.buildings : [])
-    .filter((b) => BUILDING_TYPES.includes(b.t))
+    .filter((b) => BUILDING_TYPES.includes(b.t) && num(b.hp, maxHp(b.t)) > 0)
     .map((b) => {
       const building = makeBuilding(b.t, unpackV3(b.d))
       building.yaw = num(b.y)
       building.progress = Math.max(0, Math.min(1, num(b.p, 1)))
       building.hp = Math.max(1, Math.min(maxHp(b.t), num(b.hp, maxHp(b.t))))
-      building.moisture = num(b.m)
-      building.growth = num(b.g)
+      building.burning = Math.max(0, Math.min(120, num(b.fire)))
+      building.moisture = Math.max(0, Math.min(1, num(b.m)))
+      building.growth = Math.max(0, Math.min(1, num(b.g)))
       building.upgrade = restoreUpgrade(b.u, Object.hasOwn(UPGRADE_TYPES, b.t), building.progress >= 1)
       return building
     })
@@ -960,7 +974,9 @@ export function importSave(raw: unknown): boolean {
   state.trees = (Array.isArray(data.trees) ? data.trees : []).slice(0, MAX_TREES).map((t) => {
     const tree = makeTree(unpackV3(t.d), num(t.sz, 0.6))
     tree.kind = t.k === 1 ? 1 : 0
-    tree.charred = num(t.c)
+    tree.charred = Math.max(0, Math.min(26, num(t.c)))
+    tree.burning = tree.charred > 0 ? 0 : Math.max(0, Math.min(8, num(t.fire)))
+    tree.heat = Math.max(0, Math.min(20, num(t.heat)))
     tree.yaw = num(t.y)
     return tree
   })
@@ -976,6 +992,7 @@ export function importSave(raw: unknown): boolean {
   }
 
   state.started = true
+  state.gameOver = !state.followers.some(f => !f.lost)
   seedSimulation(state.chronicle.scenario ? (typeof data.rng === 'number' && Number.isFinite(data.rng) ? data.rng : SCENARIOS[state.chronicle.scenario].seed) : null)
   updateStats()
   notify(true)

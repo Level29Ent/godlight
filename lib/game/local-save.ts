@@ -1,3 +1,4 @@
+import { validSaveStructure } from './save-validation'
 import type { SaveData } from './store'
 
 export const LOCAL_SAVE_KEY = 'godlight-world-v1'
@@ -10,10 +11,7 @@ function parseWorld(raw: string | null, mode: SaveMode): SaveData | null {
   try {
     if (!raw || raw.length > MAX_BYTES) return null
     const data = JSON.parse(raw)
-    if (data?.v !== 1 || !Array.isArray(data.followers) || !Array.isArray(data.buildings) || !Array.isArray(data.trees)) return null
-    for (const entries of [data.followers, data.buildings, data.trees, ...(data.rocks ? [data.rocks] : [])]) {
-      if (!Array.isArray(entries) || entries.some(entry => !entry || typeof entry !== 'object' || Array.isArray(entry))) return null
-    }
+    if (!validSaveStructure(data)) return null
     const scenario = data.chronicle?.scenario
     if (mode === 'challenge' ? scenario !== 'drought' && scenario !== 'restraint' : scenario != null) return null
     return data

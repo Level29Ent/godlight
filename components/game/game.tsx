@@ -157,32 +157,34 @@ function GameOver({ onOpenSaves }: { onOpenSaves: () => void }) {
   const scenario = useGame(s => s.chronicle.scenario)
   if (!gameOver) return null
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#060817]/75 px-6 text-center backdrop-blur-sm">
-      <h2 className="font-display text-4xl font-semibold text-[#f4ecd8] sm:text-6xl">The world is silent</h2>
-      <p className="mt-3 max-w-sm text-sm text-[#f4ecd8]/70">
-        No one remains to worship you. {harvests > 0 ? `They celebrated ${harvests} harvest${harvests > 1 ? 's' : ''} in your name.` : ''}
-      </p>
-      <button
-        type="button"
-        disabled={restarting}
-        onClick={async () => {
-          if (restarting) return
-          setRestarting(true)
-          try { if (scenario) startScenario(scenario); else { await interstitialAtGameOver(); resetGame() } }
-          finally { setRestarting(false) }
-        }}
-        className="font-display mt-8 rounded-full bg-[#f5c451] px-8 py-3 font-semibold text-[#1a1406] transition hover:scale-105"
-      >
-        {restarting ? 'Returning to your world…' : 'Begin anew'}
-      </button>
-      <button
-        type="button"
-        disabled={restarting}
-        onClick={onOpenSaves}
-        className="font-display mt-3 rounded-full border border-[#f5c451]/40 px-8 py-2.5 text-sm font-semibold text-[#f5c451] transition hover:bg-[#f5c451]/10"
-      >
-        Load a saved world
-      </button>
+    <div className="absolute inset-0 z-40 overflow-y-auto bg-[#060817]/90 px-6 py-8 text-center backdrop-blur-sm">
+      <div className="flex min-h-full flex-col items-center justify-center [&>*]:shrink-0">
+        <h2 className="font-display text-4xl font-semibold text-[#f4ecd8] sm:text-6xl">The world is silent</h2>
+        <p className="mt-3 max-w-sm text-sm text-[#f4ecd8]/70">
+          No one remains to worship you. {harvests > 0 ? `They celebrated ${harvests} harvest${harvests > 1 ? 's' : ''} in your name.` : ''}
+        </p>
+        <button
+          type="button"
+          disabled={restarting}
+          onClick={async () => {
+            if (restarting) return
+            setRestarting(true)
+            try { if (scenario) startScenario(scenario); else { await interstitialAtGameOver(); resetGame() } }
+            finally { setRestarting(false) }
+          }}
+          className="font-display mt-8 rounded-full bg-[#f5c451] px-8 py-3 font-semibold text-[#1a1406] transition hover:scale-105"
+        >
+          {restarting ? 'Returning to your world…' : 'Begin anew'}
+        </button>
+        <button
+          type="button"
+          disabled={restarting}
+          onClick={onOpenSaves}
+          className="font-display mt-3 rounded-full border border-[#f5c451]/40 px-8 py-2.5 text-sm font-semibold text-[#f5c451] transition hover:bg-[#f5c451]/10"
+        >
+          Load a saved world
+        </button>
+      </div>
     </div>
   )
 }
