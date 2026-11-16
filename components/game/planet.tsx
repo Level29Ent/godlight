@@ -5,7 +5,7 @@ import { type ThreeEvent } from '@react-three/fiber'
 import { AdditiveBlending, BackSide, Color } from 'three'
 import { claimPointer } from '@/lib/game/camera'
 import { createPlanetGeometry, OCEAN_RADIUS, PLANET_RADIUS } from '@/lib/game/planet'
-import { pressCursor, releaseCursor, setCursor, state, tetherClick } from '@/lib/game/store'
+import { inspectEntity, pressCursor, releaseCursor, setCursor, state, tetherClick } from '@/lib/game/store'
 
 export function Planet() {
   const geometry = useMemo(() => createPlanetGeometry(44), [])
@@ -28,6 +28,7 @@ export function Planet() {
 
   const onDown = (e: ThreeEvent<PointerEvent>) => {
     if (state.photoMode || !state.started || e.nativeEvent.button !== 0) return
+    if (state.inspectMode) { inspectEntity(null); return }
     if (state.tool === 'hand') {
       if (tetherClick(e.point.clone().normalize())) {
         e.stopPropagation()

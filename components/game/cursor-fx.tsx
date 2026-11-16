@@ -60,7 +60,7 @@ export function CursorFX() {
       warmFrames.current++
       g.scale.setScalar(1)
     }
-    const active = started && dir && tool !== 'hand'
+    const active = started && !state.inspectMode && dir && tool !== 'hand'
     g.visible = !!active
     const v = vis.current
     v.sun += ((active && tool === 'sun' && cursor.down ? 1 : 0) - v.sun) * Math.min(1, dt * 8)

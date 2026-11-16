@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ascensionGoals, canAscend, COLONY_GOALS } from '@/lib/game/chronicles'
 import { identity } from '@/lib/game/living'
-import { ascendWorld, favoriteFollower, state, useGameVersion } from '@/lib/game/store'
+import { ascendWorld, showFinale, favoriteFollower, state, useGameVersion } from '@/lib/game/store'
 import { DESTINATIONS } from '@/lib/game/cosmos'
 
 const button = 'min-h-11 rounded-xl border border-[#f5c451]/40 px-3 py-2 text-xs text-[#ffe2a1] disabled:opacity-40'
@@ -20,6 +20,7 @@ export function ChroniclePanels() {
       <p className="text-sm leading-6">Build a sanctuary among the stars. Complete every milestone, then spend 1,000 faith to transform the home planet. Your people, saves and progression stay intact; there is no reset.</p>
       <ul className="space-y-1 text-sm">{ascensionGoals(state).map(g => <li key={g.text}>{g.done ? '✓' : '○'} {g.text}</li>)}</ul>
       <button type="button" className={button} disabled={!canAscend(state)} onClick={ascendWorld}>{c.ascended ? 'Ascended · sanctuary unlocked' : 'Ascend · 1,000 faith'}</button>
+      {c.ascended && <button type="button" className={button} onClick={showFinale}>Replay your world’s Ascension story</button>}
     </section>
     <section className="mt-5 space-y-3"><h3 className="font-display text-lg text-[#ffe2a1]">Colony specializations</h3>
       {COLONY_GOALS.map((g, i) => <div key={g.resource} className="rounded-xl border border-white/10 p-3 text-sm"><h4 className="text-[#ffe2a1]">{DESTINATIONS[i].name} · {g.resource} {c.colony[i].complete ? '✓' : ''}</h4><p className="my-2 text-xs leading-5">{g.text}</p><p className="text-xs">{i === 2 ? `${Math.floor(c.colony[i].secure)}/180 secure seconds` : `${Math.floor(c.colony[i].cargo)}/20 exported`} · {g.reward}</p></div>)}

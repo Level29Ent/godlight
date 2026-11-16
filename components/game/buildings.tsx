@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
+import { claimPointer } from '@/lib/game/camera'
 import { useFrame } from '@react-three/fiber'
 import { AdditiveBlending, Color, Group, Mesh, MeshStandardMaterial, Quaternion, Vector3 } from 'three'
 import { surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
-import { maxHp, state, useGame, type Building } from '@/lib/game/store'
+import { inspectEntity, isPaused, maxHp, state, useGame, type Building } from '@/lib/game/store'
 import { disposition } from '@/lib/game/living'
 import { Warmup } from './warmup'
 
@@ -74,7 +75,10 @@ function BuildingMesh({ b, culture = null, age = 0, style = 0 }: { b: Building; 
   })
 
   return (
-    <group position={position} quaternion={quaternion}>
+    <group position={position} quaternion={quaternion} onPointerDown={e => {
+      if (b.id < 0 || !state.inspectMode || state.photoMode || isPaused()) return
+      e.stopPropagation(); inspectEntity({ kind: 'building', id: b.id }); claimPointer()
+    }}>
       {culture && <group position={[0, 0.55, 0]}>
         <mesh raycast={() => null}>
           {culture === 'peace' ? <torusGeometry args={[0.08, 0.02, 4, 12]} /> : <coneGeometry args={[0.08, 0.25, 4]} />}
