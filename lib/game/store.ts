@@ -641,7 +641,7 @@ export function resetGame() {
 }
 
 export function commandCosmos(action: CosmosAction) {
-  if (paused) return
+  if (isPaused()) return
   const message = actOnCosmos(state, action)
   say(message)
   notify(true)
@@ -2851,9 +2851,13 @@ function updateChallenges(dt: number) {
   else if (c.timeLeft <= 0 || failEarly) finishChallenge(c, false)
 }
 
-let paused = false
-export function setPaused(value: boolean) {
-  paused = value
+const pauseOwners = new Set<string>()
+export function isPaused() { return pauseOwners.size > 0 }
+
+// Each overlay/ad releases only its own pause, even when lifetimes overlap.
+export function setPaused(value: boolean, owner = 'legacy') {
+  if (value) pauseOwners.add(owner)
+  else pauseOwners.delete(owner)
   if (value) {
     setSoundscape('peace', 0)
     state.cursor.down = false
@@ -2863,7 +2867,7 @@ export function setPaused(value: boolean) {
 }
 
 export function tick(dt: number) {
-  if (paused) return
+  if (isPaused()) return
   const playing = state.started && !state.gameOver
   const channeling = playing && state.cursor.down && state.cursor.dir !== null
   setLoop('sun', channeling && state.tool === 'sun')

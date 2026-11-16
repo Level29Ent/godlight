@@ -128,7 +128,7 @@ async function initAds() {
       // Vercel previews and local builds must never request live ads.
       test: process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_VERCEL_ENV !== 'production',
       now: () => Date.now(),
-      pause: active => { setPaused(active); setAdAudioMuted(active) },
+      pause: active => { setPaused(active, 'interstitial'); setAdAudioMuted(active) },
     })
     void interstitial.preload()
   }
@@ -223,7 +223,7 @@ export async function claimReward(kind: RewardKind) {
   if (!snapshot.native || !snapshot.adsReady) return
 
   update({ busy: 'ad' })
-  setPaused(true)
+  setPaused(true, 'reward-ad')
   try {
     const earned = await showRewardedAd()
     if (earned) applyReward(kind)
@@ -231,7 +231,7 @@ export async function claimReward(kind: RewardKind) {
   } catch {
     say('No offerings are available right now. Try again soon.', 'info')
   } finally {
-    setPaused(false)
+    setPaused(false, 'reward-ad')
     update({ busy: null })
   }
 }
