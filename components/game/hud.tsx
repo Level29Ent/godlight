@@ -33,6 +33,8 @@ import { initMonetization, useMonetization } from '@/lib/game/monetization'
 import { Axe, Crown, Gift, Pickaxe, Music, Music2, Save, Volume2, VolumeX } from 'lucide-react'
 import { BoostBadge, GiftsMenu, useRewardCooldown } from './gifts-menu'
 import { cn } from '@/lib/utils'
+import { powerBlock, comboFeedback } from '@/lib/game/power-feedback'
+import { state, useGameVersion } from '@/lib/game/store'
 import { QuestStack } from './quests'
 import { gameModalOpen, ignoreGameShortcut } from '@/lib/game/shortcuts'
 
@@ -260,8 +262,10 @@ function TetherHint() {
 }
 
 function GiftsButton({ onOpenGifts }: { onOpenGifts: () => void }) {
+  const scenario = useGame(s => s.chronicle.scenario)
   const cooldown = useRewardCooldown()
   const { supporter } = useMonetization()
+  if (scenario) return null
   return (
     <button
       type="button"
@@ -348,6 +352,7 @@ function Messages() {
 }
 
 function Toolbar() {
+  useGameVersion()
   const tool = useGame((s) => s.tool)
   const ageIndex = useGame((s) => s.ageIndex)
   const faith = useGame((s) => Math.floor(s.faith))
@@ -363,6 +368,10 @@ function Toolbar() {
 
   return (
     <div className="relative flex flex-col items-center gap-2" onKeyDown={e => { if (e.key === 'Escape') { setExpanded(false); toggleRef.current?.focus() } }}>
+      <div className="pointer-events-none max-w-[min(24rem,90vw)] rounded-xl bg-[#0c1028]/85 px-3 py-1 text-center text-[10px] leading-4 text-[#f4ecd8]">
+        <p>{powerBlock(state, tool, state.cursor.dir) ?? `${info.label} ready · ${info.cost ? `${info.cost} faith` : 'free'}`}</p>
+        <p className="text-[#ffe2a1]">{comboFeedback(state)}</p>
+      </div>
       <button ref={toggleRef} type="button" aria-expanded={expanded} aria-controls="power-picker" onClick={() => setExpanded(v => !v)} className="pointer-events-auto min-h-11 rounded-full border border-[#f5c451]/30 bg-[#0c1028]/90 px-5 text-sm text-[#f5c451] backdrop-blur-md">
         {info.label} · {expanded ? 'Hide powers ▾' : 'Choose power ▴'}
       </button>

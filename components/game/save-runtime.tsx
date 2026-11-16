@@ -5,7 +5,7 @@ import useSWR, { useSWRConfig } from 'swr'
 import { listSaves, saveGame } from '@/app/actions/saves'
 import { ensureGuest, useSession } from '@/lib/auth-client'
 import { AUTOSAVE_INTERVAL_MS, AUTOSAVE_SLOT } from '@/lib/game/save-slots'
-import { exportSave, useGame } from '@/lib/game/store'
+import { exportSave, state, useGame } from '@/lib/game/store'
 
 const savesKey = (userId: string) => ['saves', userId] as const
 function useSaves(userId: string | undefined) {
@@ -27,6 +27,7 @@ export function Autosave() {
     if (!userId || !started || gameOver) return
     const id = window.setInterval(async () => {
       try {
+        if (state.chronicle.scenario) return
         await saveGame(AUTOSAVE_SLOT, 'Autosave', exportSave())
         mutate(savesKey(userId))
       } catch {

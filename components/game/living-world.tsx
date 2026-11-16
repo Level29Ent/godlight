@@ -13,8 +13,10 @@ export function LivingWorld() {
   const rings = useGame(s => s.living.rings)
   const moon = useGame(s => s.living.moon)
   const photo = useGame(s => s.photoMode)
+  const ascended = useGame(s => s.chronicle.ascended)
   useGameVersion()
   return <>
+    {ascended && <group rotation={[0.4, 0.2, 0.3]}>{[0, 1, 2].map(i => <mesh key={i} rotation={[i * 0.9, i * 0.7, 0]} raycast={() => null}><torusGeometry args={[8.8 + i * 0.3, 0.035, 6, 96]} /><meshBasicMaterial color={i === 1 ? '#99eaff' : '#ffe1a3'} toneMapped={false} transparent opacity={0.7} /></mesh>)}</group>}
     {rings && <mesh rotation={[0.5, 0, 0.3]} raycast={() => null}><ringGeometry args={[10, 11.5, 96]} /><meshBasicMaterial color={sky === 2 ? '#80e3de' : '#d9b7ed'} side={2} transparent opacity={0.35} depthWrite={false} /></mesh>}
     {moon && <mesh position={[-12, 7, -6]} raycast={() => null}><icosahedronGeometry args={[0.75, 2]} /><meshStandardMaterial color="#d9d8ef" roughness={0.95} /></mesh>}
     {!photo && state.started && state.living.prayers.map(p => <PrayerBubble key={p.followerId} followerId={p.followerId} kind={p.kind} />)}

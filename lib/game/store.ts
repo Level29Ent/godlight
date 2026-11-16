@@ -1,3 +1,7 @@
+import { focusCamera, setKeyAxes } from './camera'
+import { gameRandom, seedSimulation, simulationSeed } from './random'
+import { createChronicle, restoreChronicle, tickChronicle, rememberFollower, ascend, SCENARIOS, type Chronicle, type Scenario } from './chronicles'
+import { powerBlock } from './power-feedback'
 import { createLiving, restoreLiving, tickLiving, livingMiracle, traitOf, prayerFactor, disposition, type Living } from './living'
 import { createLandNavigator } from './navigation'
 import { actOnCosmos, createCosmos, restoreCosmos, tickCosmos, cosmicDuty, releaseCosmicDuty, cosmicFaith, faithMultiplier, climateCropFactor, alignMiracle, type Cosmos, type CosmosAction } from './cosmos'
@@ -248,6 +252,7 @@ export interface ParticleRequest {
 }
 
 export interface GameState {
+  chronicle: Chronicle
   living: Living
   photoMode: boolean
   cosmos: Cosmos
@@ -311,6 +316,7 @@ export const startDir = findStartDir()
 
 function createState(): GameState {
   return {
+    chronicle: createChronicle(),
     living: createLiving(),
     photoMode: false,
     cosmos: createCosmos(),
@@ -392,7 +398,7 @@ function createState(): GameState {
 export const state: GameState = createState()
 
 function pick<T>(arr: T[]) {
-  return arr[Math.floor(Math.random() * arr.length)]
+  return arr[Math.floor(gameRandom() * arr.length)]
 }
 
 function makeFollower(dir: Vector3): Follower {
@@ -406,15 +412,15 @@ function makeFollower(dir: Vector3): Follower {
     burning: 0,
     scared: 0,
     scareFrom: new Vector3(),
-    timer: Math.random() * 2,
+    timer: gameRandom() * 2,
     jump: 0,
-    speed: FOLLOWER_SPEED * (0.8 + Math.random() * 0.4),
+    speed: FOLLOWER_SPEED * (0.8 + gameRandom() * 0.4),
     taskId: null,
     atTemple: false,
     sunned: false,
     robe: new Color(pick(ROBE_COLORS)),
     skin: new Color(pick(SKIN_COLORS)),
-    phase: Math.random() * Math.PI * 2,
+    phase: gameRandom() * Math.PI * 2,
     lost: false,
     hp: 100,
     job: null,
@@ -430,7 +436,7 @@ function makeBuilding(type: BuildingType, dir: Vector3, complete = false): Build
     id: uid(),
     type,
     dir: dir.clone(),
-    yaw: Math.random() * Math.PI * 2,
+    yaw: gameRandom() * Math.PI * 2,
     progress: complete ? 1 : 0,
     hp: maxHp(type),
     burning: 0,
@@ -444,14 +450,14 @@ function makeBuilding(type: BuildingType, dir: Vector3, complete = false): Build
 }
 
 function makeRock(dir: Vector3, size: number): Rock {
-  return { id: uid(), dir: dir.clone(), size, yaw: Math.random() * Math.PI * 2 }
+  return { id: uid(), dir: dir.clone(), size, yaw: gameRandom() * Math.PI * 2 }
 }
 
 function populateRocks(s: GameState) {
   s.rocks = []
   for (let i = 0; i < 4; i++) {
     const d = randomLandDirNear(startDir, 0.3, true)
-    if (d && d.distanceTo(startDir) > 0.08) s.rocks.push(makeRock(d, 0.7 + Math.random() * 0.3))
+    if (d && d.distanceTo(startDir) > 0.08) s.rocks.push(makeRock(d, 0.7 + gameRandom() * 0.3))
   }
   const golden = Math.PI * (3 - Math.sqrt(5))
   const d = new Vector3()
@@ -461,9 +467,9 @@ function populateRocks(s: GameState) {
     d.set(Math.cos(golden * i + 1.7) * r, y, Math.sin(golden * i + 1.7) * r)
     randomDirNear(d, 0.08, d)
     if (!isLand(d) || d.distanceTo(startDir) < 0.09) continue
-    if (Math.random() < 0.7) continue
+    if (gameRandom() < 0.7) continue
     if (s.buildings.some((b) => b.dir.distanceTo(d) < 0.06)) continue
-    s.rocks.push(makeRock(d, 0.55 + Math.random() * 0.45))
+    s.rocks.push(makeRock(d, 0.55 + gameRandom() * 0.45))
   }
 }
 
@@ -471,7 +477,7 @@ const MAX_ROCKS = 80
 
 function updateRocks(dt: number) {
   for (const r of state.rocks) if (r.size < 1) r.size = Math.min(1, r.size + 0.004 * dt)
-  if (state.rocks.length >= MAX_ROCKS || Math.random() > dt * 0.12) return
+  if (state.rocks.length >= MAX_ROCKS || gameRandom() > dt * 0.12) return
   const anchor = state.followers.length > 0 ? pick(state.followers).dir : startDir
   const d = randomLandDirNear(anchor, 0.9, true, 10)
   if (!d) return
@@ -487,11 +493,11 @@ function makeTree(dir: Vector3, size: number): Tree {
     id: uid(),
     dir: dir.clone(),
     size,
-    kind: Math.random() < 0.55 ? 0 : 1,
+    kind: gameRandom() < 0.55 ? 0 : 1,
     heat: 0,
     burning: 0,
     charred: 0,
-    yaw: Math.random() * Math.PI * 2,
+    yaw: gameRandom() * Math.PI * 2,
   }
 }
 
@@ -515,8 +521,8 @@ function populateWorld(s: GameState) {
     randomDirNear(d, 0.06, d)
     if (!isBuildable(d)) continue
     if (d.distanceTo(startDir) < 0.09) continue
-    if (Math.random() < 0.55) continue
-    s.trees.push(makeTree(d, 0.5 + Math.random() * 0.5))
+    if (gameRandom() < 0.55) continue
+    s.trees.push(makeTree(d, 0.5 + gameRandom() * 0.5))
   }
   populateRocks(s)
 }
@@ -575,6 +581,7 @@ function emit(kind: ParticleKind, dir: Vector3, count: number, spread = 0.1, lif
 function killFollower(f: Follower, reason: string, tone: Message['tone'] = 'bad') {
   const i = state.followers.indexOf(f)
   if (i === -1) return
+  rememberFollower(state, f.id, reason ? `was lost: ${reason}` : 'was lost in a divine disaster.')
   state.followers.splice(i, 1)
   sfx('death')
   state.ghosts.push({ pos: surfacePoint(f.dir, new Vector3(), 0.1), up: f.dir.clone(), t: 0 })
@@ -607,6 +614,7 @@ function igniteBuilding(b: Building) {
 
 export function setTool(tool: Tool) {
   const info = TOOL_BY_ID[tool]
+  if (state.chronicle.scenario === 'restraint' && info.kind === 'power' && info.cost > 0) { say('Gentle Hands permits Sun, Rain, Touch and buildings only.'); return }
   if (info.unlockAge > state.ageIndex) {
     say(`${info.label} unlocks in the ${AGES[info.unlockAge].name}.`)
     sfx('error')
@@ -637,19 +645,60 @@ export function grantBoost(seconds: number) {
 }
 
 export function resetGame() {
+  invasionActive = false
+  seedSimulation(null)
   setPaused(false, 'photo')
   const fresh = createState()
   Object.assign(state, fresh)
   populateWorld(state)
   state.started = true
   updateStats()
+  for (const f of state.followers) if (!f.lost) rememberFollower(state, f.id, 'helped found this civilization.')
   notify(true)
 }
 
 export function commandCosmos(action: CosmosAction) {
   if (isPaused()) return
+  const settlers = action.type === 'launch' ? [...state.followers] : []
   const message = actOnCosmos(state, action)
+  if (message.startsWith('Rocket launched')) for (const f of settlers) if (!state.followers.some(live => live.id === f.id)) rememberFollower(state, f.id, 'became a founding settler on another world.')
   say(message)
+  notify(true)
+}
+
+export function ascendWorld() {
+  if (ascend(state)) { say('Celestial Ascension! Your sanctuary shines among the stars.', 'good'); sfx('ageUp') }
+  else say('Complete every Ascension milestone and gather 1,000 faith first.')
+  notify(true)
+}
+
+export function favoriteFollower(id: number) {
+  const list = state.chronicle.favorites
+  if (list.includes(id)) state.chronicle.favorites = list.filter(value => value !== id)
+  else if (list.length < 8 && (state.followers.some(f => f.id === id) || state.chronicle.entries.some(e => e.followerId === id))) list.push(id)
+  notify(true)
+}
+
+export function startScenario(kind: Scenario) {
+  if (!Object.hasOwn(SCENARIOS, kind)) return
+  seedSimulation(SCENARIOS[kind].seed)
+  invasionActive = false
+  setKeyAxes({ yaw: 0, pitch: 0, zoom: 0 })
+  focusCamera(startDir)
+  setPaused(false, 'photo')
+  nextId = 1
+  Object.assign(state, createState())
+  state.chronicle.scenario = kind
+  state.living.tutorialHidden = true
+  populateWorld(state)
+  state.started = true
+  if (kind === 'drought') {
+    state.cosmos.weather = { kind: 'drought', dir: startDir.toArray(), remaining: 120, next: 40 }
+    for (const b of state.buildings) if (b.type === 'farm') b.moisture = 0.15
+  }
+  for (const f of state.followers) if (!f.lost) rememberFollower(state, f.id, 'founded this challenge settlement.')
+  updateStats()
+  say(SCENARIOS[kind].text)
   notify(true)
 }
 
@@ -677,6 +726,8 @@ export function hideOpening(hidden: boolean) {
 type V3 = [number, number, number]
 
 export interface SaveData {
+  chronicle?: Chronicle
+  rng?: number | null
   living?: Living
   cosmos?: Cosmos
   v: 1
@@ -715,6 +766,8 @@ export function exportSave(): SaveData {
   const s = state
   return {
     v: 1,
+    chronicle: structuredClone(s.chronicle),
+    rng: simulationSeed(),
     cosmos: structuredClone(s.cosmos),
     living: { ...structuredClone(s.living), cast: null, prayers: [] },
     faith: round(s.faith),
@@ -763,6 +816,7 @@ const JOB_KINDS: JobKind[] = ['chop', 'mine', 'farm', 'build', 'pray', 'fight', 
 export function importSave(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object' || (raw as SaveData).v !== 1) return false
   const data = raw as SaveData
+  invasionActive = false
   setPaused(false, 'photo')
   const fresh = createState()
   Object.assign(state, fresh)
@@ -772,6 +826,7 @@ export function importSave(raw: unknown): boolean {
   state.ageIndex = Math.max(0, Math.min(AGES.length - 1, Math.floor(num(data.ageIndex))))
   state.time = num(data.time)
   state.living = restoreLiving(data.living, state.ageIndex, state.time)
+  state.chronicle = restoreChronicle(data.chronicle, state.time, state.ageIndex, state.cosmos.averted, state.cosmos.impacts)
   state.harvests = num(data.harvests)
   state.tool = data.tool in TOOL_BY_ID && TOOL_BY_ID[data.tool].unlockAge <= state.ageIndex ? data.tool : 'sun'
   state.objectiveIndex = Math.max(0, Math.min(OBJECTIVES.length, Math.floor(num(data.objectiveIndex))))
@@ -779,6 +834,8 @@ export function importSave(raw: unknown): boolean {
   state.challengeTimer = num(data.challengeTimer, 60)
   state.birthTimer = num(data.birthTimer, 6)
   state.viewDir = unpackV3(data.view)
+  setKeyAxes({ yaw: 0, pitch: 0, zoom: 0 })
+  focusCamera(state.viewDir)
   state.wood = Math.max(0, num(data.wood, 10))
   state.stone = Math.max(0, num(data.stone, 4))
   state.invasionTimer = Math.max(45, num(data.invasionTimer, 150))
@@ -845,6 +902,7 @@ export function importSave(raw: unknown): boolean {
   }
 
   state.started = true
+  seedSimulation(state.chronicle.scenario ? (typeof data.rng === 'number' && Number.isFinite(data.rng) ? data.rng : SCENARIOS[state.chronicle.scenario].seed) : null)
   updateStats()
   notify(true)
   return true
@@ -950,7 +1008,7 @@ function castLightning(dir: Vector3) {
   state.stats.strikes++
   const target = surfacePoint(dir, new Vector3())
   const sky = dir.clone().multiplyScalar(PLANET_RADIUS + 7)
-  const tangent = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).cross(dir).normalize()
+  const tangent = new Vector3(gameRandom() - 0.5, gameRandom() - 0.5, gameRandom() - 0.5).cross(dir).normalize()
   sky.addScaledVector(tangent, 1.5)
   const points: [number, number, number][] = []
   const seg = 14
@@ -961,7 +1019,7 @@ function castLightning(dir: Vector3) {
     p.lerpVectors(sky, target, t)
     if (i > 0 && i < seg) {
       const amp = Math.sin(t * Math.PI) * 0.45
-      jitter.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(amp)
+      jitter.set(gameRandom() - 0.5, gameRandom() - 0.5, gameRandom() - 0.5).multiplyScalar(amp)
       p.add(jitter)
     }
     points.push([p.x, p.y, p.z])
@@ -998,7 +1056,7 @@ function castMeteor(dir: Vector3) {
   if (!spend(TOOL_BY_ID.meteor.cost)) return
   state.stats.meteors++
   const to = surfacePoint(dir, new Vector3())
-  const axis = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).cross(dir).normalize()
+  const axis = new Vector3(gameRandom() - 0.5, gameRandom() - 0.5, gameRandom() - 0.5).cross(dir).normalize()
   const from = dir
     .clone()
     .applyAxisAngle(axis, 0.6)
@@ -1061,7 +1119,7 @@ function castGrove(dir: Vector3) {
     if (!isBuildable(d)) continue
     if (state.trees.some((t) => surfaceDist(t.dir, d) < 0.24)) continue
     if (state.buildings.some((b) => surfaceDist(b.dir, d) < 0.38)) continue
-    state.trees.push(makeTree(d, 0.25 + Math.random() * 0.25))
+    state.trees.push(makeTree(d, 0.25 + gameRandom() * 0.25))
     emit('leaf', d, 8, 0.05, 0.1)
     planted++
   }
@@ -1198,7 +1256,7 @@ function castQuake(dir: Vector3) {
   state.trees = state.trees.filter((t) => {
     const d = surfaceDist(t.dir, dir)
     if (d > QUAKE_RADIUS) return true
-    if (Math.random() < 0.25 + 0.6 * (1 - d / QUAKE_RADIUS)) {
+    if (gameRandom() < 0.25 + 0.6 * (1 - d / QUAKE_RADIUS)) {
       emit('dust', t.dir, 6, 0.08, 0.1)
       emit('leaf', t.dir, 4, 0.08, 0.3 * t.size)
       toppled++
@@ -1217,7 +1275,7 @@ function castQuake(dir: Vector3) {
   let killed = 0
   for (const f of [...state.followers]) {
     const d = surfaceDist(f.dir, dir)
-    if (d < 0.5 && Math.random() < 0.5) {
+    if (d < 0.5 && gameRandom() < 0.5) {
       killFollower(f, '')
       killed++
     } else if (d < QUAKE_RADIUS) {
@@ -1257,18 +1315,18 @@ function updateTornadoes(dt: number) {
     tw.t += dt
     const angle = tw.dir.angleTo(tw.target)
     const step = (1.1 * dt) / PLANET_RADIUS
-    if (angle < step + 0.01 || Math.random() < dt * 0.3) {
+    if (angle < step + 0.01 || gameRandom() < dt * 0.3) {
       tw.target.copy(randomDirNear(tw.dir, 0.4))
     } else {
       tornadoAxis.crossVectors(tw.dir, tw.target).normalize()
       tw.dir.applyAxisAngle(tornadoAxis, step).normalize()
     }
-    if (Math.random() < dt * 22) emit('dust', tw.dir, 2, 0.25, 0.05)
+    if (gameRandom() < dt * 22) emit('dust', tw.dir, 2, 0.25, 0.05)
 
     for (const f of [...state.followers]) {
       const d = surfaceDist(f.dir, tw.dir)
       if (d < 0.42) {
-        killFollower(f, Math.random() < 0.5 ? 'A follower was swept into the sky!' : '')
+        killFollower(f, gameRandom() < 0.5 ? 'A follower was swept into the sky!' : '')
       } else if (d < 1.8 && f.scared <= 0) {
         f.scared = 1.5
         f.scareFrom.copy(tw.dir)
@@ -1295,7 +1353,7 @@ function updateTornadoes(dt: number) {
     for (const b of state.buildings) {
       if (surfaceDist(b.dir, tw.dir) < 0.6) {
         b.hp -= 60 * dt
-        if (Math.random() < dt * 10) emit('dust', b.dir, 3, 0.12, 0.2)
+        if (gameRandom() < dt * 10) emit('dust', b.dir, 3, 0.12, 0.2)
       }
     }
     state.fearTimer = Math.max(state.fearTimer, 8)
@@ -1492,7 +1550,7 @@ function advanceConstruction(b: Building, rate: number, dt: number) {
   state.stone = Math.max(0, state.stone - cost.stone * delta)
   b.progress = Math.min(1, b.progress + delta)
   if (b.progress > 0.9999) b.progress = 1
-  if (Math.random() < dt * 2) emit('spark', b.dir, 1, 0.1, 0.2)
+  if (gameRandom() < dt * 2) emit('spark', b.dir, 1, 0.1, 0.2)
   if (b.progress >= 1) {
     b.short = []
     say(`A new ${b.type} stands complete!`, 'good')
@@ -1634,7 +1692,7 @@ function runJob(f: Follower, dt: number) {
       if (b.burning > 0) return
       if (advanceConstruction(b, buildRate(b) * 2, dt)) {
         f.state = 'build'
-        if (Math.random() < dt * 1.2) sfx('build')
+        if (gameRandom() < dt * 1.2) sfx('build')
       } else {
         f.state = 'idle'
       }
@@ -1687,7 +1745,7 @@ function runJob(f: Follower, dt: number) {
       f.atTemple = true
       state.faith += 0.35 * dt
       f.happiness = Math.min(100, f.happiness + 1.5 * dt)
-      if (Math.random() < dt) emit('faith', f.dir, 1, 0.02, 0.4)
+      if (gameRandom() < dt) emit('faith', f.dir, 1, 0.02, 0.4)
       return
     }
   }
@@ -1767,9 +1825,9 @@ function spawnAliens(u: Ufo) {
       dir: d,
       target: d.clone(),
       hp: ALIEN_HP,
-      cooldown: 1 + Math.random(),
+      cooldown: 1 + gameRandom(),
       hurt: 0,
-      phase: Math.random() * Math.PI * 2,
+      phase: gameRandom() * Math.PI * 2,
     })
   }
 }
@@ -1885,7 +1943,7 @@ function updateUfo(u: Ufo, dt: number) {
       break
   }
 
-  if (u.phase !== 'arrive' && Math.random() < dt * 4) {
+  if (u.phase !== 'arrive' && gameRandom() < dt * 4) {
     emit('spark', u.dir, 1, 0.05, u.height + 0.1)
   }
   void ufoPos
@@ -1919,7 +1977,7 @@ function updateAlien(a: Alien, dt: number) {
   const range = 0.9
   if (prey && preyD < range) {
     if (a.cooldown <= 0) {
-      a.cooldown = 1.6 + Math.random() * 0.6
+      a.cooldown = 1.6 + gameRandom() * 0.6
       shoot(a, prey.dir)
       prey.hp -= 34
       prey.scared = Math.max(prey.scared, prey.job ? 0 : 2)
@@ -1931,10 +1989,10 @@ function updateAlien(a: Alien, dt: number) {
   }
   if (mark && markD < range * 0.8 && (!prey || preyD > markD)) {
     if (a.cooldown <= 0) {
-      a.cooldown = 2 + Math.random()
+      a.cooldown = 2 + gameRandom()
       shoot(a, mark.dir)
       mark.hp -= 12
-      if (Math.random() < 0.3) igniteBuilding(mark)
+      if (gameRandom() < 0.3) igniteBuilding(mark)
     }
     return
   }
@@ -1960,7 +2018,7 @@ function updateInvaders(dt: number) {
   if (!state.ufos.length && !state.aliens.length && villagers >= 3 && state.time > 90) {
     state.invasionTimer -= dt
     if (state.invasionTimer <= 0) {
-      state.invasionTimer = Math.max(100, 220 - state.ageIndex * 25) + Math.random() * 60
+      state.invasionTimer = Math.max(100, 220 - state.ageIndex * 25) + gameRandom() * 60
       launchInvasion()
     }
   }
@@ -2037,7 +2095,7 @@ function setWander(f: Follower, range = 0.3) {
   const d = randomLandDirNear(f.dir, range, false, 10)
   f.target.copy(d ?? f.dir)
   f.state = 'wander'
-  f.timer = 4 + Math.random() * 4
+  f.timer = 4 + gameRandom() * 4
 }
 
 function neededMaterial(): Material | null {
@@ -2091,11 +2149,11 @@ function autoGather(f: Follower, material: Material) {
 function decide(f: Follower) {
   const gathering = state.followers.filter((o) => o.job?.auto).length
   const material = neededMaterial()
-  if (material && gathering < Math.max(2, Math.ceil(state.followers.length * 0.45)) && Math.random() < 0.55) {
+  if (material && gathering < Math.max(2, Math.ceil(state.followers.length * 0.45)) && gameRandom() < 0.55) {
     if (autoGather(f, material)) return
   }
   const sites = state.buildings.filter((b) => b.progress < 1 && b.burning === 0 && b.builders < 3 && b.short.length === 0 && !navigator.isUnreachable(f, b.dir))
-  if (sites.length > 0 && Math.random() < 0.85) {
+  if (sites.length > 0 && gameRandom() < 0.85) {
     let best: Building | null = null
     let bestD = Infinity
     for (const b of sites) {
@@ -2115,9 +2173,9 @@ function decide(f: Follower) {
   }
 
   const prayChance = state.cosmos.commandment === 'peace' ? 0.6 : state.fearTimer > 0 ? 0.8 : f.happiness > 35 ? 0.45 : 0.1
-  if (Math.random() < Math.min(0.95, prayChance + (disposition(state.cosmos.alignment) === 'dreaded' ? 0.1 : 0))) {
+  if (gameRandom() < Math.min(0.95, prayChance + (disposition(state.cosmos.alignment) === 'dreaded' ? 0.1 : 0))) {
     const temples = state.buildings.filter((b) => b.type === 'temple' && b.progress >= 1)
-    if (temples.length > 0 && Math.random() < 0.65) {
+    if (temples.length > 0 && gameRandom() < 0.65) {
       const temple = pick(temples)
       f.state = 'pilgrim'
       f.taskId = temple.id
@@ -2126,7 +2184,7 @@ function decide(f: Follower) {
       return
     }
     f.state = 'pray'
-    f.timer = 3 + Math.random() * 4
+    f.timer = 3 + gameRandom() * 4
     f.atTemple = false
     return
   }
@@ -2177,7 +2235,7 @@ function updateFollowers(dt: number) {
     if (f.burning > 0) {
       f.burning += dt
       embers.push(f)
-      if (moveToward(f, f.target, f.speed * 2.4, dt, true) || Math.random() < dt) {
+      if (moveToward(f, f.target, f.speed * 2.4, dt, true) || gameRandom() < dt) {
         f.target.copy(randomLandDirNear(f.dir, 0.25, false, 6) ?? f.dir)
       }
       if (f.burning > 5) killFollower(f, 'A follower burned to ash.')
@@ -2188,7 +2246,7 @@ function updateFollowers(dt: number) {
       f.scared -= dt
       f.state = 'flee'
       tmpVec.copy(f.dir).sub(f.scareFrom)
-      if (tmpVec.lengthSq() < 1e-6) tmpVec.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)
+      if (tmpVec.lengthSq() < 1e-6) tmpVec.set(gameRandom() - 0.5, gameRandom() - 0.5, gameRandom() - 0.5)
       f.target.copy(f.dir).addScaledVector(tmpVec.normalize(), 0.3).normalize()
       moveToward(f, f.target, f.speed * 2.6, dt, true)
       if (f.scared <= 0) {
@@ -2229,8 +2287,8 @@ function updateFollowers(dt: number) {
       case 'wander':
         if (moveToward(f, f.target, f.speed, dt, true) || f.timer <= 0) {
           f.state = 'idle'
-          f.timer = 0.5 + Math.random()
-          f.state = Math.random() < 0.5 ? 'idle' : 'wander'
+          f.timer = 0.5 + gameRandom()
+          f.state = gameRandom() < 0.5 ? 'idle' : 'wander'
           if (f.state === 'wander') setWander(f)
         }
         break
@@ -2264,7 +2322,7 @@ function updateFollowers(dt: number) {
         if (moveToward(f, f.target, f.speed * 1.1, dt, false) || f.timer <= 0) {
           f.state = 'pray'
           f.atTemple = surfaceDist(f.dir, b.dir) < 0.6
-          f.timer = 6 + Math.random() * 4
+          f.timer = 6 + gameRandom() * 4
         }
         break
       }
@@ -2275,8 +2333,8 @@ function updateFollowers(dt: number) {
   }
 
   for (const f of embers) {
-    if (Math.random() < dt * 8) emit('ember', f.dir, 1, 0.03, 0.2)
-    for (const t of state.trees) if (Math.random() < dt * 0.6 && surfaceDist(t.dir, f.dir) < 0.35) igniteTree(t)
+    if (gameRandom() < dt * 8) emit('ember', f.dir, 1, 0.03, 0.2)
+    for (const t of state.trees) if (gameRandom() < dt * 0.6 && surfaceDist(t.dir, f.dir) < 0.35) igniteTree(t)
   }
 }
 
@@ -2303,6 +2361,8 @@ function applyCursor(dt: number) {
     return
   }
   const dir = cursor.dir
+  const blocked = powerBlock(state, tool, dir)
+  if (blocked) { if (cursor.pressed) say(blocked); cursor.pressed = false; return }
 
   if (cursor.pressed) {
     cursor.pressed = false
@@ -2338,7 +2398,7 @@ function applyCursor(dt: number) {
         f.happiness = Math.min(100, f.happiness + 16 * dt)
         f.heat += 1.15 * dt
         f.sunned = true
-        if (Math.random() < dt * 1.5) emit('faith', f.dir, 1, 0.02, 0.35)
+        if (gameRandom() < dt * 1.5) emit('faith', f.dir, 1, 0.02, 0.35)
       }
     }
     for (const t of state.trees) {
@@ -2363,6 +2423,7 @@ function applyCursor(dt: number) {
           f.heat = 0
           f.happiness = Math.min(100, f.happiness + 20)
           state.stats.doused++
+          rememberFollower(state, f.id, 'was rescued from fire by your rain.')
           say('Saved by the rain!', 'good')
         }
         f.heat = Math.max(0, f.heat - 4 * dt)
@@ -2390,7 +2451,7 @@ function applyCursor(dt: number) {
         }
       }
     }
-    if (state.trees.length < MAX_TREES && Math.random() < dt * 0.9) {
+    if (state.trees.length < MAX_TREES && gameRandom() < dt * 0.9) {
       const d = randomDirNear(dir, RAIN_RADIUS / PLANET_RADIUS)
       if (
         isBuildable(d) &&
@@ -2410,9 +2471,9 @@ function updateBuildings(dt: number) {
     if (b.burning > 0) {
       b.burning += dt
       b.hp -= 7 * dt
-      if (Math.random() < dt * 14) emit('ember', b.dir, 1, 0.12, 0.25)
-      for (const t of state.trees) if (Math.random() < dt * 0.25 && surfaceDist(t.dir, b.dir) < 0.6) igniteTree(t)
-      for (const o of state.buildings) if (o !== b && Math.random() < dt * 0.08 && surfaceDist(o.dir, b.dir) < 0.75) igniteBuilding(o)
+      if (gameRandom() < dt * 14) emit('ember', b.dir, 1, 0.12, 0.25)
+      for (const t of state.trees) if (gameRandom() < dt * 0.25 && surfaceDist(t.dir, b.dir) < 0.6) igniteTree(t)
+      for (const o of state.buildings) if (o !== b && gameRandom() < dt * 0.08 && surfaceDist(o.dir, b.dir) < 0.75) igniteBuilding(o)
       for (const f of state.followers) {
         if (f.scared <= 0 && surfaceDist(f.dir, b.dir) < 0.45) {
           f.scared = 1.5
@@ -2449,7 +2510,7 @@ function updateBuildings(dt: number) {
       for (const f of state.followers) {
         if (!f.lost && surfaceDist(f.dir, b.dir) < 2.4) f.happiness = Math.min(100, f.happiness + 1.4 * dt)
       }
-      if (Math.random() < dt * 3) emit('faith', b.dir, 1, 0.06, 0.9)
+      if (gameRandom() < dt * 3) emit('faith', b.dir, 1, 0.06, 0.9)
     }
     b.sunned = false
     if (b.hp <= 0) changed = true
@@ -2476,18 +2537,18 @@ function updateTrees(dt: number) {
     if (t.size < 1) t.size = Math.min(1, t.size + 0.006 * dt)
     if (t.burning > 0) {
       t.burning += dt
-      if (Math.random() < dt * 6) emit('ember', t.dir, 1, 0.05, 0.3 * t.size)
+      if (gameRandom() < dt * 6) emit('ember', t.dir, 1, 0.05, 0.3 * t.size)
       for (const o of state.trees) {
-        if (o !== t && o.burning === 0 && o.charred === 0 && Math.random() < dt * 0.35 && surfaceDist(o.dir, t.dir) < 0.6) igniteTree(o)
+        if (o !== t && o.burning === 0 && o.charred === 0 && gameRandom() < dt * 0.35 && surfaceDist(o.dir, t.dir) < 0.6) igniteTree(o)
       }
-      for (const b of state.buildings) if (Math.random() < dt * 0.15 && surfaceDist(b.dir, t.dir) < 0.5) igniteBuilding(b)
+      for (const b of state.buildings) if (gameRandom() < dt * 0.15 && surfaceDist(b.dir, t.dir) < 0.5) igniteBuilding(b)
       for (const f of state.followers) {
         if (surfaceDist(f.dir, t.dir) < 0.4) {
           if (f.scared <= 0) {
             f.scared = 1.2
             f.scareFrom.copy(t.dir)
           }
-          if (Math.random() < dt * 0.05) f.burning = 0.001
+          if (gameRandom() < dt * 0.05) f.burning = 0.001
         }
       }
       if (t.burning > 7) {
@@ -2508,7 +2569,7 @@ function updateEffects(dt: number) {
     const landed: Meteor[] = []
     for (const m of state.meteors) {
       m.t += dt
-      if (Math.random() < 0.9) state.particleQueue.push({ kind: 'ember', pos: meteorPosition(m), count: 2, spread: 0.15, up: m.dir })
+      if (gameRandom() < 0.9) state.particleQueue.push({ kind: 'ember', pos: meteorPosition(m), count: 2, spread: 0.15, up: m.dir })
       if (m.t >= m.duration) landed.push(m)
     }
     if (landed.length) {
@@ -2571,13 +2632,13 @@ function updateEconomy(dt: number) {
       const r = (0.35 + (f.happiness / 100) * 1.1) * (f.atTemple ? 2.6 : 1) * fearMult * nightMult * prayerFactor(f, state.cosmos.alignment)
       rate += r
       if (isNight) state.stats.nightPrayers += dt
-      if (Math.random() < dt * r * 0.9) emit('faith', f.dir, 1, 0.02, 0.4)
+      if (gameRandom() < dt * r * 0.9) emit('faith', f.dir, 1, 0.02, 0.4)
     } else {
       rate += (f.happiness / 100) * 0.12
     }
   }
   rate += state.stats.monuments * 1.5 + cosmicFaith(state.cosmos)
-  rate *= faithMultiplier(state.cosmos)
+  rate *= faithMultiplier(state.cosmos) * (state.chronicle.colony[1].complete ? 1.1 : 1)
   if (state.cosmos.commandment === 'peace') for (const f of state.followers) if (!f.lost) f.happiness = Math.min(100, f.happiness + 0.3 * dt)
   if (state.cosmos.commandment === 'trial') state.fearTimer = Math.max(state.fearTimer, 0.5)
   if (state.auroraTimer > 0) rate *= 1.5
@@ -2598,6 +2659,7 @@ function updateEconomy(dt: number) {
       baby.jump = 0.8
       baby.happiness = 75
       state.followers.push(baby)
+      rememberFollower(state, baby.id, 'was born beneath your guiding light.')
       emit('faith', d, 16, 0.08, 0.2)
       say('A new follower is born!', 'good')
       sfx('birth')
@@ -2663,7 +2725,7 @@ const CHALLENGE_RADIUS = 4.5
 function findFarLandDir() {
   const d = new Vector3()
   for (let i = 0; i < 400; i++) {
-    d.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize()
+    d.set(gameRandom() - 0.5, gameRandom() - 0.5, gameRandom() - 0.5).normalize()
     if (d.dot(state.viewDir) < -0.25 && isBuildable(d)) return d.clone()
   }
   return null
@@ -2788,7 +2850,7 @@ function createChallenge(kind: ChallengeKind): Challenge | null {
 }
 
 function startChallenge() {
-  const options = CHALLENGE_KINDS.filter((k) => k !== state.lastChallenge).sort(() => Math.random() - 0.5)
+  const options = CHALLENGE_KINDS.filter((k) => k !== state.lastChallenge).sort(() => gameRandom() - 0.5)
   for (const kind of options) {
     const c = createChallenge(kind)
     if (c) {
@@ -2841,7 +2903,7 @@ function updateChallenges(dt: number) {
     c.timeLeft -= dt
     if (c.timeLeft <= -4) {
       state.challenge = null
-      state.challengeTimer = 50 + Math.random() * 35
+      state.challengeTimer = 50 + gameRandom() * 35
       notify(true)
     }
     return
@@ -2935,7 +2997,11 @@ export function tick(dt: number) {
   })
   setSoundscape(state.cosmos.disaster && !state.cosmos.disaster.resolved ? 'disaster' : state.cosmos.weather.kind !== 'clear' ? 'storm' : state.fearTimer > 5 ? 'wrath' : 'peace', state.ageIndex)
   updateEconomy(dt)
-  if (!state.gameOver) tickLiving(state, dt, text => say(text, 'good'))
+  if (!state.gameOver) {
+    tickLiving(state, dt, text => say(text, 'good'))
+    tickChronicle(state, dt, text => say(text, 'good'))
+    if (state.chronicle.colony[0].complete) for (const b of state.buildings) if (b.burning === 0) b.hp = Math.min(maxHp(b.type), b.hp + dt * 0.3)
+  }
   updateObjectives()
   updateChallenges(dt)
   notify()
