@@ -232,3 +232,62 @@ test('Sun crystal specialization applies the advertised ten percent faith reward
   assert.ok(Math.abs(boosted - base * 1.1) < 1e-6)
   resetGame()
 })
+
+test('leaving a challenge saves it and directly restores normal progress without reloading', async () => {
+  const { beginChallenge, leaveChallenge, resumeChallenge } = await import('../lib/game/challenge-session.ts')
+  const device = storage()
+  resetGame(); state.faith = 777
+  beginChallenge(device, 'drought'); state.faith = 55
+  assert.equal(leaveChallenge(device), 'normal')
+  assert.equal(state.chronicle.scenario, null); assert.equal(state.faith, 777)
+  resumeChallenge(device)
+  assert.equal(state.faith, 55); assert.equal(state.chronicle.scenario, 'drought')
+  resetGame()
+})
+
+test('challenge leave handles no normal save and refuses to discard progress on quota failure', async () => {
+  const { leaveChallenge } = await import('../lib/game/challenge-session.ts')
+  startScenario('restraint'); state.faith = 56
+  assert.throws(() => leaveChallenge({ getItem() { return null }, setItem() { throw new Error('quota') } }), /Challenge save failed/)
+  assert.equal(state.faith, 56); assert.equal(state.chronicle.scenario, 'restraint')
+  const device = storage()
+  assert.equal(leaveChallenge(device), 'title')
+  assert.equal(state.started, false); assert.equal(state.chronicle.scenario, null)
+  assert.equal(readLocalWorld(device, 'challenge').faith, 56)
+  assert.equal(simulationSeed(), null)
+  resetGame()
+})
+
+test('a paused picker keeps simulation frozen across challenge entry until its own pause is released', async () => {
+  const { beginChallenge } = await import('../lib/game/challenge-session.ts')
+  const { setPaused } = await import('../lib/game/store.ts')
+  resetGame()
+  try {
+    setPaused(true, 'challenge-picker')
+    beginChallenge(storage(), 'drought')
+    tick(0.05)
+    assert.equal(state.time, 0)
+    setPaused(true, 'guide')
+    setPaused(false, 'challenge-picker')
+    tick(0.05)
+    assert.equal(state.time, 0)
+    setPaused(false, 'guide')
+    tick(0.05)
+    assert.ok(state.time > 0)
+  } finally { setPaused(false, 'challenge-picker'); setPaused(false, 'guide'); resetGame() }
+})
+
+test('leaving a challenge can recover a corrupted normal primary from its own backup', async () => {
+  const { beginChallenge, leaveChallenge } = await import('../lib/game/challenge-session.ts')
+  const device = storage()
+  resetGame(); state.faith = 101
+  writeLocalWorld(device, exportSave())
+  state.faith = 202
+  beginChallenge(device, 'drought')
+  device.map.set(LOCAL_SAVE_KEY, '{broken')
+  assert.equal(leaveChallenge(device), 'normal')
+  assert.equal(state.chronicle.scenario, null)
+  assert.equal(state.faith, 101)
+  assert.ok(state.messages.some(m => m.text.includes('older normal-world snapshot')))
+  resetGame()
+})

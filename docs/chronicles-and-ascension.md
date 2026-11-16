@@ -22,7 +22,7 @@ Reach Age of Stars, answer 20 prayers, avert three cosmic disasters, finish thre
 
 ## Separate challenge worlds
 
-The title/in-game Challenges control offers two fixed seeds:
+The title/in-game Challenges control opens a keyboard-accessible native dialog that pauses simulation while choosing. Escape or Close dismisses it and restores focus. It offers two fixed seeds:
 
 - **The Long Drought (29401):** a 120-second initial drought and low farm moisture; survive at least 300 seconds and complete five harvests.
 - **Gentle Hands (29402):** reach eight home followers with Sun, Rain, Touch and buildings. Paid miracle tools, cosmic shields and colony smites are blocked by simulation validation, not just hidden buttons.
@@ -33,7 +33,7 @@ Simulation randomness is a separate seeded stream, including initial population/
 
 Normal device autosaves remain `godlight-world-v1`. Challenges write only `godlight-challenge-v1`; each bank rejects data marked for the other bank. A running normal world must be successfully backed up before challenge entry or resume; if browser storage is unavailable/full, entry is refused without changing the normal world. Starting fresh asks for confirmation because it replaces challenge progress. Gifts are hidden in challenges. Challenge game-over restart stays in the same scenario rather than silently creating a normal world.
 
-Regular slot writes reject challenge payloads, and regular slot autosave skips challenge sessions. Challenges use their separate device autosave and explicit Save challenge & return to title control. After returning, continue a normal device world from the title, or open Challenges to resume its separate snapshot. Browser storage can still be cleared/evicted; this is not cross-device cloud backup. On failure, controls report that the normal bank remains unchanged rather than claiming a successful save.
+Regular slot writes reject challenge payloads, and regular slot autosave skips challenge sessions. Challenges use their separate device autosave and explicit Save challenge & return to normal world control. Leaving restores your normal device snapshot directly without reloading; if none exists, returns to the title. Open Challenges to resume its separate snapshot. Browser storage can still be cleared/evicted; this is not cross-device cloud backup. On failure, controls report that the normal bank remains unchanged rather than claiming a successful save.
 
 The pre-existing account/save-slot interface retains its existing backing implementation. This update does not migrate it to a new cloud service or promise account-level synchronization.
 
@@ -46,3 +46,10 @@ The power picker shows why a selected power cannot be used (age, scenario restri
 The optional `chronicle` extension leaves save version and original objective indexes intact. Memories and favorites are bounded; invalid values are normalized. Normal saves continue using unseeded model randomness. No new environment variables are required.
 
 Tests cover memory bounds/round trips, old-save migration, colony hazards/rewards/one-time gates, Ascension, seeded initial state, RNG checkpoints, challenge completion, storage failure before transitions, bank isolation, slot-write rejection, drought-duration restoration, restricted power execution and combo-preview readiness. Desktop/mobile rendering, native controls and real browser recovery still require interactive preview/device verification; passing model tests and builds do not establish those outcomes.
+
+
+## Device recovery snapshots
+
+Each normal/challenge device-save bank keeps one previous structurally valid snapshot under its own `-backup` key when storage permits. Reads prefer the primary and automatically fall back only when it is missing, malformed, oversized or belongs to the wrong bank. The title labels recovery explicitly so players know it restores older progress. Corrupt primaries never replace good backups. Backup allocation is best-effort; lack of room for a second copy does not itself block saving the primary. A primary write failure still reports failure. This does not protect against browser eviction/clearing, every kind of logical save corruption, or device loss.
+
+Challenge return saves its own progress before switching and refuses to leave on save failure. Normal recovery is resolved before switching banks. Tests cover direct return/resume, missing normal saves, corrupt-primary fallback, quota failures, and pause ownership during challenge transitions. Interactive modal focus/touch flows remain dependent on preview browser verification.
