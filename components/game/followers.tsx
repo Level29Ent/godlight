@@ -18,6 +18,7 @@ import {
 } from 'three'
 import { surfacePoint } from '@/lib/game/planet'
 import { facingQuaternion, surfaceQuaternion } from '@/lib/game/orient'
+import { disposition } from '@/lib/game/living'
 import { isSupporter } from '@/lib/game/monetization'
 import { beginTether, pokeFollower, state, type Follower, type JobKind } from '@/lib/game/store'
 
@@ -25,6 +26,7 @@ const MAX = 160
 const FIRE = new Color(3, 1.1, 0.25)
 const PEACE_ROBE = new Color('#d9f4ed')
 const TRIAL_ROBE = new Color('#9f3d50')
+const AGE_CLOTH = ['#ceab7b', '#b5cf9d', '#acd9e0', '#97b3ed', '#c6b9f0', '#ffe3a0'].map(c => new Color(c))
 const GLUM = new Color('#6b6f7a')
 const HURT = new Color('#ff5a4a')
 const ZERO = new Matrix4().makeScale(0, 0, 0)
@@ -111,6 +113,7 @@ export function Followers() {
     const supporter = isSupporter()
     const { obj, q, p, c, local, rot, out } = tmp
     const selected = state.tether.followerId
+    const culture = state.cosmos.commandment ?? (disposition(state.cosmos.alignment) === 'benevolent' ? 'peace' : disposition(state.cosmos.alignment) === 'dreaded' ? 'trial' : null)
 
     const limb = (mesh: InstancedMesh | null, i: number, base: Matrix4, x: number, y: number, swing: number, spread = 0) => {
       local.makeTranslation(x, y, 0)
@@ -170,7 +173,7 @@ export function Followers() {
       refs.head.current!.setMatrixAt(i, base)
       refs.hair.current!.setMatrixAt(i, base)
       refs.hit.current!.setMatrixAt(i, base)
-      refs.halo.current!.setMatrixAt(i, praying || supporter ? base : ZERO)
+      refs.halo.current!.setMatrixAt(i, praying || supporter || state.ageIndex >= 4 ? base : ZERO)
 
       if (f.job || f.id === selected) {
         local.makeRotationY(t * 2 + f.phase)
@@ -184,14 +187,15 @@ export function Followers() {
       if (f.burning > 0) {
         c.copy(FIRE).multiplyScalar(0.7 + Math.random() * 0.6)
       } else {
-        c.copy(state.cosmos.commandment === 'peace' ? PEACE_ROBE : state.cosmos.commandment === 'trial' ? TRIAL_ROBE : f.robe)
+        c.copy(culture === 'peace' ? PEACE_ROBE : culture === 'trial' ? TRIAL_ROBE : f.robe)
+        c.lerp(AGE_CLOTH[state.ageIndex], 0.18 + state.ageIndex * 0.08)
         if (f.happiness < 25) c.lerp(GLUM, 0.5)
         if (f.hp < 50) c.lerp(HURT, (50 - f.hp) / 100)
       }
       refs.torso.current!.setColorAt(i, c)
       refs.armL.current!.setColorAt(i, c)
       refs.armR.current!.setColorAt(i, c)
-      const pants = f.burning > 0 ? c : tmp.c.copy(state.cosmos.commandment === 'peace' ? PEACE_ROBE : state.cosmos.commandment === 'trial' ? TRIAL_ROBE : f.robe).multiplyScalar(0.45)
+      const pants = f.burning > 0 ? c : tmp.c.copy(culture === 'peace' ? PEACE_ROBE : culture === 'trial' ? TRIAL_ROBE : f.robe).multiplyScalar(0.45)
       refs.legL.current!.setColorAt(i, pants)
       refs.legR.current!.setColorAt(i, pants)
       refs.head.current!.setColorAt(i, f.burning > 0 ? FIRE : f.skin)
@@ -209,7 +213,7 @@ export function Followers() {
   })
 
   const onGrab = (e: ThreeEvent<PointerEvent>) => {
-    if (state.tool !== 'hand' || e.instanceId === undefined) return
+    if (state.photoMode || state.tool !== 'hand' || e.instanceId === undefined) return
     e.stopPropagation()
     pokeFollower(e.instanceId)
     beginTether(e.instanceId)

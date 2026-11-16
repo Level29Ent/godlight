@@ -1,20 +1,23 @@
 'use client'
 
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { AdditiveBlending, Color, Group, Mesh, MeshStandardMaterial, Quaternion, Vector3 } from 'three'
 import { surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
 import { maxHp, state, useGame, type Building } from '@/lib/game/store'
+import { disposition } from '@/lib/game/living'
 import { Warmup } from './warmup'
 
 export function Buildings() {
   const buildings = useGame((s) => s.buildings)
-  const culture = useGame(s => s.cosmos.commandment)
+  const culture = useGame(s => s.cosmos.commandment ?? (disposition(s.cosmos.alignment) === 'benevolent' ? 'peace' : disposition(s.cosmos.alignment) === 'dreaded' ? 'trial' : null))
+  const age = useGame(s => s.ageIndex)
+  const style = useGame(s => s.living.style)
   return (
     <group>
       {buildings.map((b) => (
-        <BuildingMesh key={b.id} b={b} culture={culture} />
+        <BuildingMesh key={b.id} b={b} culture={culture} age={age} style={style} />
       ))}
       <Warmup>
         {WARM_BUILDINGS.map((b) => (
@@ -43,7 +46,7 @@ const WARM_BUILDINGS: Building[] = (['house', 'farm', 'temple', 'well'] as const
 
 const CHARCOAL = new Color('#2d2826')
 
-function BuildingMesh({ b, culture = null }: { b: Building; culture?: 'peace' | 'trial' | null }) {
+function BuildingMesh({ b, culture = null, age = 0, style = 0 }: { b: Building; culture?: 'peace' | 'trial' | null; age?: number; style?: number }) {
   const inner = useRef<Group>(null)
   const scaffold = useRef<Group>(null)
   const { position, quaternion } = useMemo(
@@ -54,9 +57,10 @@ function BuildingMesh({ b, culture = null }: { b: Building; culture?: 'peace' | 
     [b],
   )
   const wallMat = useMemo(
-    () => new MeshStandardMaterial({ color: b.type === 'temple' ? '#efe8da' : '#f3e4c4', roughness: 0.85, flatShading: true }),
-    [b.type],
+    () => new MeshStandardMaterial({ color: style === 1 ? '#b9e5d0' : style === 2 ? '#eccbd7' : age >= 2 ? '#e2e4ec' : b.type === 'temple' ? '#efe8da' : '#f3e4c4', roughness: 0.85, flatShading: true }),
+    [b.type, style, age],
   )
+  useEffect(() => () => wallMat.dispose(), [wallMat])
   const baseWall = useMemo(() => wallMat.color.clone(), [wallMat])
   const fullHp = maxHp(b.type)
 
@@ -78,7 +82,7 @@ function BuildingMesh({ b, culture = null }: { b: Building; culture?: 'peace' | 
         </mesh>
       </group>}
       <group ref={inner}>
-        {b.type === 'house' && <House wall={wallMat} />}
+        {b.type === 'house' && <House wall={wallMat} age={age} />}
         {b.type === 'temple' && <Temple wall={wallMat} b={b} />}
         {b.type === 'well' && <Well />}
       </group>
@@ -123,15 +127,20 @@ function Well() {
   )
 }
 
-function House({ wall }: { wall: MeshStandardMaterial }) {
+function House({ wall, age }: { wall: MeshStandardMaterial; age: number }) {
   return (
     <group scale={1.15}>
+      {age >= 1 && <mesh position={[0, -0.01, 0.2]} receiveShadow><boxGeometry args={[0.24, 0.025, 0.24]} /><meshStandardMaterial color={age >= 3 ? '#aebccd' : '#9d8b77'} /></mesh>}
+      {age >= 2 && <mesh position={[0.16, 0.1, 0]} material={wall} castShadow><boxGeometry args={[0.12, 0.2, 0.18]} /></mesh>}
+      {age >= 3 && <mesh position={[0.16, 0.23, 0]}><boxGeometry args={[0.14, 0.025, 0.2]} /><meshStandardMaterial color="#557bba" metalness={0.6} roughness={0.3} /></mesh>}
+      {age >= 4 && <mesh position={[0, 0.34, 0]}><torusGeometry args={[0.08, 0.012, 6, 20]} /><meshBasicMaterial color="#8ce9ff" /></mesh>}
+      {age >= 5 && <mesh position={[0.16, 0.4, 0]}><octahedronGeometry args={[0.055]} /><meshBasicMaterial color="#ffe099" /></mesh>}
       <mesh position={[0, 0.08, 0]} material={wall} castShadow receiveShadow>
         <boxGeometry args={[0.22, 0.16, 0.2]} />
       </mesh>
       <mesh position={[0, 0.215, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
         <coneGeometry args={[0.185, 0.13, 4]} />
-        <meshStandardMaterial color="#c4553a" roughness={0.8} flatShading />
+        <meshStandardMaterial color={age >= 4 ? '#6689af' : age >= 2 ? '#627a91' : '#c4553a'} roughness={0.8} flatShading />
       </mesh>
       <mesh position={[0.06, 0.25, 0.03]} castShadow>
         <boxGeometry args={[0.03, 0.08, 0.03]} />
