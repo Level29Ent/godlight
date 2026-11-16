@@ -7,6 +7,7 @@ import { AdditiveBlending, Color, Group, Mesh, MeshStandardMaterial, Quaternion,
 import { surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
 import { inspectEntity, isPaused, maxHp, state, useGame, type Building } from '@/lib/game/store'
+import { upgradeLevel } from '@/lib/game/upgrades'
 import { disposition } from '@/lib/game/living'
 import { Warmup } from './warmup'
 
@@ -50,6 +51,7 @@ const CHARCOAL = new Color('#2d2826')
 function BuildingMesh({ b, culture = null, age = 0, style = 0 }: { b: Building; culture?: 'peace' | 'trial' | null; age?: number; style?: number }) {
   const inner = useRef<Group>(null)
   const scaffold = useRef<Group>(null)
+  const tierOne = useRef<Group>(null), tierTwo = useRef<Group>(null), improvement = useRef<Group>(null)
   const { position, quaternion } = useMemo(
     () => ({
       position: surfacePoint(b.dir, new Vector3(), -0.03),
@@ -70,6 +72,9 @@ function BuildingMesh({ b, culture = null, age = 0, style = 0 }: { b: Building; 
       const p = b.progress
       inner.current.scale.set(1, 0.08 + 0.92 * p, 1)
     }
+    if (tierOne.current) tierOne.current.visible = upgradeLevel(b) >= 1
+    if (tierTwo.current) tierTwo.current.visible = upgradeLevel(b) >= 2
+    if (improvement.current) improvement.current.visible = b.upgrade?.remaining != null
     if (scaffold.current) scaffold.current.visible = b.progress < 1
     wallMat.color.copy(baseWall).lerp(CHARCOAL, 1 - Math.max(0, b.hp) / fullHp)
   })
@@ -79,6 +84,15 @@ function BuildingMesh({ b, culture = null, age = 0, style = 0 }: { b: Building; 
       if (b.id < 0 || !state.inspectMode || state.photoMode || isPaused()) return
       e.stopPropagation(); inspectEntity({ kind: 'building', id: b.id }); claimPointer()
     }}>
+      <group ref={tierOne} visible={false} position={[0.24, 0.12, 0]}>
+        <mesh raycast={() => null}><cylinderGeometry args={[0.045, 0.055, 0.2, 6]} /><meshStandardMaterial color="#8abfa0" metalness={0.2} roughness={0.7} /></mesh>
+      </group>
+      <group ref={tierTwo} visible={false} position={[-0.24, 0.12, 0]}>
+        <mesh raycast={() => null}><cylinderGeometry args={[0.045, 0.055, 0.2, 6]} /><meshStandardMaterial color="#e4c56b" metalness={0.5} roughness={0.4} /></mesh>
+      </group>
+      <group ref={improvement} visible={false} position={[0, 0.48, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <mesh raycast={() => null}><torusGeometry args={[0.12, 0.015, 4, 16]} /><meshBasicMaterial color="#8fdcff" wireframe /></mesh>
+      </group>
       {culture && <group position={[0, 0.55, 0]}>
         <mesh raycast={() => null}>
           {culture === 'peace' ? <torusGeometry args={[0.08, 0.02, 4, 12]} /> : <coneGeometry args={[0.08, 0.25, 4]} />}

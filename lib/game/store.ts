@@ -1,8 +1,9 @@
+import { beginUpgrade, tickUpgrades, restoreUpgrade, upgradeLevel, housingCapacity, farmGrowthMultiplier, wellIrrigation, UPGRADE_TYPES, type BuildingUpgrade } from './upgrades'
 import { createWildlife, restoreWildlife, tickWildlife, type Wildlife } from './wildlife'
 import { inspectionTitle, type CareIssue, type Inspection } from './world-care'
 import { focusCamera, setKeyAxes } from './camera'
 import { gameRandom, seedSimulation, simulationSeed } from './random'
-import { createChronicle, restoreChronicle, tickChronicle, rememberFollower, ascend, SCENARIOS, type Chronicle, type Scenario } from './chronicles'
+import { createChronicle, restoreChronicle, tickChronicle, rememberFollower, record, ascend, SCENARIOS, type Chronicle, type Scenario } from './chronicles'
 import { powerBlock } from './power-feedback'
 import { createLiving, restoreLiving, tickLiving, livingMiracle, traitOf, prayerFactor, disposition, type Living } from './living'
 import { createLandNavigator } from './navigation'
@@ -171,6 +172,7 @@ export interface Rock {
 }
 
 export interface Building {
+  upgrade?: BuildingUpgrade
   id: number
   type: BuildingType
   dir: Vector3
@@ -689,6 +691,17 @@ export function commandCosmos(action: CosmosAction) {
   notify(true)
 }
 
+export function upgradeBuilding(id: number) {
+  const result = beginUpgrade(state, id)
+  say(result.message, result.ok ? 'good' : 'info')
+  if (result.ok) {
+    const b = state.buildings.find(b => b.id === id)!
+    record(state, `${b.type} improvement tier ${upgradeLevel(b) + 1} commissioned.`)
+    sfx('build')
+  }
+  notify(true)
+}
+
 export function setInspectMode(active: boolean) {
   cancelTether()
   state.cursor.down = false; state.cursor.pressed = false
@@ -806,7 +819,7 @@ export interface SaveData {
   boostTimer?: number
   auroraTimer?: number
   followers: { id: number; d: V3; h: number; r: string; s: string; sp: number; ph: number; j?: [JobKind, V3] }[]
-  buildings: { t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
+  buildings: { u?: BuildingUpgrade; t: BuildingType; d: V3; y: number; p: number; hp: number; m: number; g: number }[]
   trees: { d: V3; sz: number; k: 0 | 1; c: number; y: number }[]
 }
 
@@ -856,6 +869,7 @@ export function exportSave(): SaveData {
       ...(f.job && f.job.kind !== 'fight' ? { j: [f.job.kind, packV3(f.job.dir)] as [JobKind, V3] } : {}),
     })),
     buildings: s.buildings.map((b) => ({
+      ...(b.upgrade ? { u: { ...b.upgrade } } : {}),
       t: b.type,
       d: packV3(b.dir),
       y: round(b.yaw),
@@ -939,6 +953,7 @@ export function importSave(raw: unknown): boolean {
       building.hp = Math.max(1, Math.min(maxHp(b.t), num(b.hp, maxHp(b.t))))
       building.moisture = num(b.m)
       building.growth = num(b.g)
+      building.upgrade = restoreUpgrade(b.u, Object.hasOwn(UPGRADE_TYPES, b.t), building.progress >= 1)
       return building
     })
 
@@ -2543,7 +2558,7 @@ function updateBuildings(dt: number) {
     if (b.type === 'farm' && b.progress >= 1) {
       b.moisture = Math.max(0, b.moisture - 0.035 * dt)
       if (b.moisture > 0.05) {
-        b.growth += (0.03 + (b.sunned ? 0.11 : 0)) * dt * climateCropFactor(state.cosmos, b.dir)
+        b.growth += (0.03 + (b.sunned ? 0.11 : 0)) * dt * climateCropFactor(state.cosmos, b.dir) * farmGrowthMultiplier(b)
         if (b.growth >= 1) {
           b.growth = 0
           state.faith += 20
@@ -2555,8 +2570,9 @@ function updateBuildings(dt: number) {
       }
     }
     if (b.type === 'well' && b.progress >= 1) {
+      const irrigation = wellIrrigation(b)
       for (const o of state.buildings) {
-        if (o.type === 'farm' && o.progress >= 1 && surfaceDist(o.dir, b.dir) < 2.2) o.moisture = Math.min(1, o.moisture + 0.05 * dt)
+        if (o.type === 'farm' && o.progress >= 1 && surfaceDist(o.dir, b.dir) < irrigation.range) o.moisture = Math.min(1, o.moisture + irrigation.moisture * dt)
       }
       for (const f of state.followers) {
         if (!f.lost && surfaceDist(f.dir, b.dir) < 1.6) f.happiness = Math.min(100, f.happiness + 0.6 * dt)
@@ -2665,7 +2681,7 @@ function updateStats() {
   const houses = done.filter((b) => b.type === 'house').length
   const temples = done.filter((b) => b.type === 'temple').length
   state.pop = pop
-  state.capacity = 2 + houses * 3 + temples * 2
+  state.capacity = 2 + done.reduce((sum, b) => sum + housingCapacity(b), 0) + temples * 2
   state.happiness = pop ? active.reduce((a, f) => a + f.happiness, 0) / pop : 0
   state.stats.houses = houses
   state.stats.temples = temples
@@ -3038,6 +3054,12 @@ export function tick(dt: number) {
   navigator.beginFrame()
   updateFollowers(dt)
   updateBuildings(dt)
+  tickUpgrades(state, dt, b => {
+    record(state, `${b.type} improvement tier ${upgradeLevel(b)} completed.`)
+    say(`${b.type} improvement complete: tier ${upgradeLevel(b)}.`, 'good')
+    sfx('complete')
+    emit('faith', b.dir, 12, 0.15, 0.3)
+  })
   updateTrees(dt)
   updateRocks(dt)
   updateTornadoes(dt)
