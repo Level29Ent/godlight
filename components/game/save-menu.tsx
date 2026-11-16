@@ -44,7 +44,7 @@ export function SaveMenu({ open, onClose }: { open: boolean; onClose: () => void
 
   return (
     <div
-      className="absolute inset-0 z-20 flex items-center justify-center bg-[#060817]/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-50 flex items-center justify-center bg-[#060817]/70 p-4 backdrop-blur-sm"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

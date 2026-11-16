@@ -89,8 +89,8 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
 
   if (!started) return null
   return (
-    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:p-5">
-      <header className="flex flex-wrap items-start justify-between gap-2 sm:flex-nowrap">
+    <div className="game-hud pointer-events-none absolute inset-0">
+      <header data-game-header className="game-header">
         <div className="flex flex-col gap-1.5 sm:gap-2">
           <AgePanel />
           <QuestStack />
@@ -99,15 +99,19 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
           <StatsPanel onOpenSaves={onOpenSaves} onOpenGifts={openGifts} />
         </div>
       </header>
-      <div className="flex flex-1 flex-col items-center gap-2 pt-2">
+      <div className="game-invasion flex flex-col items-center gap-2 pt-2">
         <InvasionBanner />
       </div>
       <Messages />
-      <TetherHint />
-      <Toolbar />
       <GiftsMenu open={giftsOpen} onClose={closeGifts} />
     </div>
   )
+}
+
+export function GameTools() {
+  const over = useGame(s => s.gameOver)
+  if (over) return null
+  return <div className="game-tools"><TetherHint /><Toolbar /></div>
 }
 
 function Panel({ className, children }: { className?: string; children: React.ReactNode }) {
@@ -132,7 +136,7 @@ function AgePanel() {
   const isNight = useGame((s) => s.night > 0.5)
   const aurora = useGame((s) => Math.ceil(s.auroraTimer))
   return (
-    <Panel className="w-32 rounded-xl px-3 py-2 sm:w-60 sm:rounded-2xl sm:px-4 sm:py-3">
+    <Panel className="w-full min-w-0 rounded-xl px-3 py-2 sm:w-60 sm:rounded-2xl sm:px-4 sm:py-3">
       <div className="flex items-center justify-between gap-2">
         <p className="font-display hidden text-[10px] uppercase tracking-[0.25em] text-[#f5c451]/80 sm:block">Godlight</p>
         <span
@@ -168,7 +172,7 @@ function StatsPanel({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; onO
   const stone = useGame((s) => Math.floor(s.stone))
 
   return (
-    <Panel className="flex max-w-full flex-col items-end gap-1.5 rounded-xl px-3 py-2 sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3">
+    <Panel className="game-stats flex max-w-full flex-col items-end gap-1.5 rounded-xl px-3 py-2 sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3">
       <div className="flex items-baseline gap-1.5 sm:items-center sm:gap-2">
         <Sparkles className="size-4 self-center text-[#f5c451] sm:size-5" aria-hidden="true" />
         <span className="font-display text-xl font-semibold tabular-nums sm:text-3xl">{faith}</span>
@@ -250,7 +254,7 @@ function TetherHint() {
   return (
     <p
       className={cn(
-        'mx-auto mb-2 max-w-md rounded-full px-3 py-1 text-center text-[11px] backdrop-blur-sm sm:text-xs',
+        'game-tether-hint mx-auto max-w-md rounded-xl px-3 py-1 text-center text-[11px] backdrop-blur-sm sm:text-xs',
         !active && 'hidden sm:block',
         active && preview && !preview.kind ? 'bg-[#3a0f0f]/70 text-[#ffb3a8]' : 'bg-black/30 text-[#f4ecd8]/75',
       )}
@@ -333,7 +337,7 @@ function AudioToggles({ onOpenSaves, onOpenGifts }: { onOpenSaves: () => void; o
 function Messages() {
   const messages = useGame((s) => s.messages)
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-28 flex flex-col items-center gap-2 px-4 sm:top-6" aria-live="polite">
+    <div className="game-messages pointer-events-none flex flex-col items-center gap-2 px-3" aria-live="polite">
       {messages.map((m) => (
         <p
           key={m.id}
@@ -367,15 +371,15 @@ function Toolbar() {
   }, [tool])
 
   return (
-    <div className="relative flex flex-col items-center gap-2" onKeyDown={e => { if (e.key === 'Escape') { setExpanded(false); toggleRef.current?.focus() } }}>
-      <div className="pointer-events-none max-w-[min(24rem,90vw)] rounded-xl bg-[#0c1028]/85 px-3 py-1 text-center text-[10px] leading-4 text-[#f4ecd8]">
+    <div className="game-toolbar relative flex flex-col items-center gap-2" onKeyDown={e => { if (e.key === 'Escape') { setExpanded(false); toggleRef.current?.focus() } }}>
+      <div className="game-power-feedback pointer-events-none max-w-[min(24rem,90vw)] rounded-xl bg-[#0c1028]/85 px-3 py-1 text-center text-[10px] leading-4 text-[#f4ecd8]">
         <p>{powerBlock(state, tool, state.cursor.dir) ?? `${info.label} ready · ${info.cost ? `${info.cost} faith` : 'free'}`}</p>
         <p className="text-[#ffe2a1]">{comboFeedback(state)}</p>
       </div>
       <button ref={toggleRef} type="button" aria-expanded={expanded} aria-controls="power-picker" onClick={() => setExpanded(v => !v)} className="pointer-events-auto min-h-11 rounded-full border border-[#f5c451]/30 bg-[#0c1028]/90 px-5 text-sm text-[#f5c451] backdrop-blur-md">
         {info.label} · {expanded ? 'Hide powers ▾' : 'Choose power ▴'}
       </button>
-      <div id="power-picker" hidden={!expanded} className="pointer-events-auto absolute bottom-full z-20 mb-2 w-[min(24rem,calc(100vw-1.5rem))] rounded-2xl bg-[#0c1028]/95 p-2 shadow-xl">
+      <div id="power-picker" hidden={!expanded} className="game-power-picker pointer-events-auto absolute bottom-full z-20 mb-2 w-[min(24rem,calc(100vw_-_1.5rem))] rounded-2xl bg-[#0c1028]/95 p-2 shadow-xl">
         <p
           className={cn(
             'max-w-[90vw] rounded-full bg-black/40 px-3 py-1 text-center text-[11px] leading-snug text-[#f4ecd8]/85 backdrop-blur-sm transition-opacity duration-500 sm:block sm:max-w-md sm:px-4 sm:py-1.5 sm:text-sm sm:opacity-100',
@@ -384,7 +388,7 @@ function Toolbar() {
         >
           {info.hint}
         </p>
-        <Panel className="max-h-[40dvh] touch-pan-y overflow-y-auto p-1.5">
+        <Panel className="max-h-[min(40dvh,18rem)] touch-pan-y overflow-y-auto p-1.5">
           <div className="grid grid-cols-4 gap-1" role="group" aria-label="Divine powers">
             {TOOLS.map((t, i) => {
               const Icon = ICONS[t.id]

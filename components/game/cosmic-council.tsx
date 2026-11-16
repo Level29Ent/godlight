@@ -26,8 +26,8 @@ export function CosmicCouncil() {
   if (!started) return null
   return <>
     <CosmicWarning onOpen={() => setOpen(true)} />
-    <button ref={toggle} type="button" aria-expanded={open} aria-controls="cosmic-council" className={`${button} absolute bottom-14 right-3 z-20 bg-[#0c1028]/95 sm:right-5`} onClick={() => { unlockAudio(); setOpen(v => !v) }}>Living Cosmos {open ? '−' : '+'}</button>
-    {open && <aside ref={panel} tabIndex={-1} id="cosmic-council" aria-label="Living Cosmos council" className="absolute inset-x-3 bottom-28 top-3 z-30 overflow-y-auto overscroll-contain rounded-3xl border border-[#c1b5ff]/30 bg-[#090e24]/95 p-4 text-[#f4ecd8] shadow-2xl backdrop-blur-lg sm:left-auto sm:right-5 sm:top-5 sm:w-[min(32rem,90vw)] sm:p-5">
+    <button ref={toggle} type="button" aria-expanded={open} aria-controls="cosmic-council" className={`${button} game-menu-button bg-[#0c1028]/95`} onClick={() => { unlockAudio(); setOpen(v => !v) }}>Living Cosmos {open ? '−' : '+'}</button>
+    {open && <aside ref={panel} tabIndex={-1} id="cosmic-council" aria-label="Living Cosmos council" className="game-council-panel game-floating-panel inset-x-3 top-3 z-30 overflow-y-auto overscroll-contain rounded-3xl border border-[#c1b5ff]/30 bg-[#090e24]/95 p-4 text-[#f4ecd8] shadow-2xl backdrop-blur-lg sm:left-auto sm:right-5 sm:top-5 sm:w-[min(32rem,90vw)] sm:p-5">
       <div className="sticky -top-4 z-10 flex items-center justify-between gap-3 bg-[#090e24] py-3">
         <div><p className="text-[10px] uppercase tracking-[0.3em] text-[#bcb4ec]">A living, changing universe</p><h2 className="font-display text-xl">Living Cosmos</h2></div>
         <button type="button" className={button} onClick={() => { setOpen(false); toggle.current?.focus() }}>Close</button>

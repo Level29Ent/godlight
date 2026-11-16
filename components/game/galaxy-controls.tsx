@@ -10,7 +10,7 @@ export function GalaxyControls() {
   const index = useGame(s => s.cosmos.activeColony)
   if (index === null) return null
   const p = state.cosmos.colonies[index], d = DESTINATIONS[index], surface = p.surface
-  return <section aria-label="Colony controls" className="absolute inset-x-3 bottom-14 z-40 max-h-[45dvh] overflow-y-auto rounded-2xl border border-white/20 bg-[#090e24]/95 p-4 text-[#f4ecd8] sm:left-auto sm:w-[30rem]">
+  return <section aria-label="Colony controls" className="game-colony-panel game-floating-panel inset-x-3 z-40 overflow-y-auto rounded-2xl border border-white/20 bg-[#090e24]/95 p-4 text-[#f4ecd8] sm:left-auto sm:w-[30rem]">
     <div className="flex items-center justify-between gap-2"><h2 className="font-display text-xl">{d.name} · {d.biome}</h2><button type="button" className={button} onClick={() => commandCosmos({ type: 'visit', index: null })}>Return home</button></div>
     <p className="mt-2 text-xs text-[#ffe2a1]">{COLONY_GOALS[index].resource}: {COLONY_GOALS[index].text} {state.chronicle.colony[index].complete ? 'Specialization complete! ' : ''}{COLONY_GOALS[index].reward}</p>
     <p className="mt-2 text-xs">Drag to orbit · Home world keeps running. Shared resources: {Math.floor(state.faith)} faith · {Math.floor(state.wood)} timber · {Math.floor(state.stone)} stone</p>

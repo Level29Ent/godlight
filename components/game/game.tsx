@@ -5,9 +5,9 @@ import { Sparkles, Sun, CloudRain, Zap } from 'lucide-react'
 import { startDir, startGame, resetGame, startScenario, useGame } from '@/lib/game/store'
 import { PLANET_RADIUS } from '@/lib/game/planet'
 import { Scene } from './scene'
-import { Hud } from './hud'
+import { Hud, GameTools } from './hud'
 import { unlockAudio } from '@/lib/game/audio'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Autosave, ContinueButton } from './save-runtime'
 import { LocalProgress } from './local-progress'
@@ -21,6 +21,7 @@ import { Worldbook, PhotoControls } from './worldbook'
 import { PhotoCapture } from './photo-capture'
 import { FieldGuide } from './field-guide'
 import { interstitialAtGameOver } from '@/lib/game/monetization'
+import { useGameLayout } from './responsive-layout'
 import { recordCrash } from '@/lib/game/crash-log'
 
 const SaveMenu = dynamic(() => import('./save-menu').then(module => module.SaveMenu), { ssr: false })
@@ -28,6 +29,8 @@ const SaveMenu = dynamic(() => import('./save-menu').then(module => module.SaveM
 const cameraPosition = startDir.clone().multiplyScalar(PLANET_RADIUS * 3.8).toArray() as [number, number, number]
 
 export default function Game() {
+  const root = useRef<HTMLElement>(null)
+  useGameLayout(root)
   const photo = useGame(s => s.photoMode)
   const started = useGame(s => s.started)
   const activeColony = useGame(s => s.cosmos.activeColony)
@@ -43,8 +46,9 @@ export default function Game() {
   }, [])
   const closeSaves = useCallback(() => setSavesOpen(false), [])
   return (
-    <main className="relative h-dvh w-full select-none overflow-hidden bg-[#060817]">
+    <main ref={root} className="game-shell relative flex h-dvh w-full flex-col select-none overflow-hidden bg-[#060817]">
       <Canvas
+        style={{ position: 'absolute', inset: 0 }}
         shadows={!batterySaver}
         dpr={batterySaver ? 1 : [1, 1.5]}
         fallback={<p role="alert">This device needs WebGL to play Godlight.</p>}
@@ -63,24 +67,29 @@ export default function Game() {
         <Scene batterySaver={batterySaver} />
       </Canvas>
       {!photo && activeColony === null && <Hud onOpenSaves={openSaves} />}
-      {!photo && activeColony === null && <CosmicCouncil />}
       {!photo && <GalaxyControls />}
       <TitleScreen onOpenSaves={openSaves} />
       <GameOver onOpenSaves={openSaves} />
       {savesOpen && <SaveMenu open onClose={closeSaves} />}
       <Autosave />
       <LocalProgress />
-      {!photo && started && <FieldGuide />}
-      <Worldbook />
       <InspectionCard />
       <AscensionFinale />
       <PhotoControls />
-      {!photo && <ChallengeControls />}
-      {!photo && <button type="button" aria-pressed={batterySaver} aria-label={`Battery saver ${batterySaver ? 'on' : 'off'}`} title="Battery saver" className="absolute bottom-0 left-0 z-10 min-h-11 rounded-tr-xl bg-[#0c1028] px-3 text-xs text-[#f5c451]" onClick={() => {
-        const next = !batterySaver
-        setBatterySaver(next)
-        try { localStorage.setItem('godlight-battery', String(next)) } catch {}
-      }}>Eco {batterySaver ? 'on' : 'off'}</button>}
+      {!photo && <footer className="game-bottom" data-game-dock aria-label="Game controls">
+        {started && activeColony === null && <GameTools />}
+        <nav className="game-actions" aria-label="World menus">
+          {started && <FieldGuide />}
+          {activeColony === null && <CosmicCouncil />}
+          <Worldbook />
+          <ChallengeControls />
+          <button type="button" aria-pressed={batterySaver} aria-label={`Battery saver ${batterySaver ? 'on' : 'off'}`} title="Battery saver" className="game-menu-button min-h-11 rounded-xl bg-[#0c1028] px-3 text-xs text-[#f5c451]" onClick={() => {
+            const next = !batterySaver
+            setBatterySaver(next)
+            try { localStorage.setItem('godlight-battery', String(next)) } catch {}
+          }}>Eco {batterySaver ? 'on' : 'off'}</button>
+        </nav>
+      </footer>}
       {contextLost && <div role="alert" className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#060817] p-6 text-center text-[#f4ecd8]">
         <p>The graphics connection was interrupted. Reload to recover your saved world.</p>
         <button type="button" onClick={() => location.reload()} className="rounded-full bg-[#f5c451] px-6 py-3 text-[#1a1406]">Reload game</button>

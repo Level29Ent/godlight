@@ -173,3 +173,99 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* One flow-based dock owns the bottom of the game. Never position menu triggers
+   independently: localized labels, mobile wrapping and browser zoom change its height. */
+.game-shell {
+  --game-dock-height: 180px;
+  --game-header-height: 150px;
+  --game-edge: max(0.75rem, env(safe-area-inset-left), env(safe-area-inset-right));
+}
+.game-bottom {
+  flex: none;
+  margin-top: auto;
+  z-index: 20;
+  padding: 0.5rem var(--game-edge) max(0.5rem, env(safe-area-inset-bottom));
+  pointer-events: none;
+  background: linear-gradient(transparent, #060817e6);
+}
+.game-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.game-bottom dialog, .game-bottom aside, .game-bottom section { pointer-events: auto; }
+.game-header [aria-controls="quest-cards"] { width: min(100%, 15rem); }
+.game-menu-button { pointer-events: auto; min-height: 44px; min-width: 0; }
+.game-power-picker {
+  max-height: max(5rem, calc(100dvh - var(--game-dock-height) - var(--game-header-height) - 1rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.game-tools { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; }
+.game-power-feedback { max-height: 4.5rem; overflow-y: auto; }
+.game-header {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: 0.5rem;
+  align-items: start;
+  padding: max(0.75rem, env(safe-area-inset-top)) var(--game-edge) 0.5rem;
+}
+.game-header > * { min-width: 0; }
+.game-header > :last-child { align-items: flex-end; }
+.game-stats { overflow-wrap: anywhere; }
+.game-stats > :last-child { flex-wrap: wrap; justify-content: flex-end; }
+.game-invasion { padding-inline: var(--game-edge); }
+.game-messages { max-height: 20dvh; overflow: hidden; margin-top: 0.5rem; }
+.game-messages p { max-width: min(32rem, 90vw); }
+.game-floating-panel {
+  position: absolute;
+  pointer-events: auto;
+  bottom: calc(var(--game-dock-height) + 0.5rem);
+  max-height: max(3rem, calc(100dvh - var(--game-dock-height) - var(--game-header-height) - 1.5rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.game-guidance { left: var(--game-edge); }
+.game-dock-alert { pointer-events: auto; bottom: calc(var(--game-dock-height) + 0.75rem); }
+.game-council-panel {
+  left: var(--game-edge);
+  right: var(--game-edge);
+  /* Council replaces the play area, not the dock; keep its own scrolling region. */
+  max-height: calc(100dvh - var(--game-dock-height) - max(0.75rem, env(safe-area-inset-top)) - 1rem);
+}
+.game-inspection { max-height: max(3rem, min(42dvh, calc(100dvh - var(--game-dock-height) - var(--game-header-height) - 1.5rem))); }
+.game-colony-panel { left: var(--game-edge); right: var(--game-edge); max-height: min(45dvh, calc(100dvh - var(--game-dock-height) - 1.5rem)); }
+@media (min-width: 640px) {
+  .game-header { grid-template-columns: minmax(0, 1fr) auto; }
+  .game-council-panel, .game-colony-panel { left: auto; }
+}
+@media (max-width: 639px) {
+  .game-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.375rem; }
+  .game-menu-button { padding-inline: 0.375rem; justify-content: center; text-align: center; font-size: 11px; overflow-wrap: anywhere; }
+  .game-menu-button svg { flex-shrink: 0; }
+  .game-toolbar { width: 100%; }
+  .game-power-feedback { width: 100%; max-height: 3.5rem; }
+  .game-tether-hint { max-height: 2.5rem; overflow: hidden; }
+  .game-stats { padding-inline: 0.5rem; }
+  .game-messages p:not(:last-child) { display: none; }
+  .game-inspection { left: var(--game-edge); right: var(--game-edge); width: auto; }
+}
+@media (max-height: 500px) {
+  /* Secondary guidance is still available in Worldbook; avoid covering the world
+     with a tall tutorial/challenge card in phone landscape or short windows. */
+  .game-guidance:not([aria-label="Challenge progress"]) { display: none; }
+  .game-header { padding-top: max(0.375rem, env(safe-area-inset-top)); }
+  .game-header .game-stats { padding-block: 0.375rem; }
+  .game-power-feedback, .game-tether-hint { display: none; }
+  .game-actions { margin-top: 0.25rem; gap: 0.25rem; }
+  .game-tools { gap: 0; }
+  .game-bottom { padding-top: 0.25rem; }
+  .game-messages { max-height: 3rem; margin-top: 0.25rem; }
+  .game-messages p:not(:last-child) { display: none; }
+}
