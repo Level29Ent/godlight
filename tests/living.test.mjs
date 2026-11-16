@@ -192,3 +192,70 @@ test('restoring while in photo mode cannot leave an invisible pause behind', () 
   tick(0.05)
   assert.ok(state.time > before)
 })
+
+test('save/load preserves remaining combo cooldown without preserving a rain gesture', () => {
+  startGame()
+  state.time = 100
+  state.living.comboCooldown = 130
+  state.living.cast = { tool: 'rain', dir: [0, 1, 0], seconds: 2, time: 100 }
+  const save = exportSave()
+  importSave(JSON.parse(JSON.stringify(save)))
+  assert.equal(state.living.comboCooldown, 130)
+  assert.equal(state.living.cast, null)
+})
+
+test('sunshower never reduces growth already above the instant-harvest cap', () => {
+  startGame()
+  const b = farm(); assert.ok(b); b.growth = 0.999
+  livingMiracle(state, 'rain', b.dir, 2, tell)
+  livingMiracle(state, 'sun', b.dir, 0.1, tell)
+  assert.equal(b.growth, 0.999)
+})
+
+test('sweeping rain across distant regions does not prepare an instant local combo', () => {
+  startGame()
+  const b = farm(); assert.ok(b); b.growth = 0
+  // Each frame moves less than the old local-distance test, but total drift is huge.
+  for (let i = 0; i < 50; i++) {
+    const dir = b.dir.clone().applyAxisAngle(new Vector3(0, 1, 0), (49 - i) * 0.06)
+    state.time += 0.05
+    livingMiracle(state, 'rain', dir, 0.05, tell)
+  }
+  livingMiracle(state, 'sun', b.dir, 0.05, tell)
+  assert.equal(b.growth, 0)
+  assert.deepEqual(state.living.combos, [])
+})
+
+test('aliens killed by a combination cannot attack before their cleanup', () => {
+  startGame()
+  const f = state.followers[0], dir = f.dir.clone()
+  state.aliens = [{ id: 9001, ufoId: 1, dir, target: dir.clone(), hp: 30, cooldown: 0, hurt: 0, phase: 0 }]
+  livingMiracle(state, 'rain', dir, 2, tell)
+  livingMiracle(state, 'lightning', dir, 0, tell)
+  const hp = f.hp
+  tick(0.01)
+  assert.equal(f.hp, hp)
+  assert.equal(state.aliens.length, 0)
+  assert.equal(state.stats.aliensSlain, 1)
+})
+
+
+test('restored cooldowns are finite and bounded and cannot block a world forever', () => {
+  for (const [value, expected] of [[130, 130], [120, 120], [90, 100], [10000, 130], [Infinity, 100], [NaN, 100], [undefined, 100]]) {
+    assert.equal(restoreLiving({ comboCooldown: value }, 0, 100).comboCooldown, expected)
+  }
+})
+
+test('restored cooldown prevents a repeated sunshower until it actually expires', () => {
+  startGame()
+  state.time = 100; state.living.comboCooldown = 130
+  importSave(JSON.parse(JSON.stringify(exportSave())))
+  const b = farm(); assert.ok(b); b.growth = 0
+  livingMiracle(state, 'rain', b.dir, 2, tell)
+  livingMiracle(state, 'sun', b.dir, 0.05, tell)
+  assert.equal(b.growth, 0)
+  state.time = 130
+  livingMiracle(state, 'rain', b.dir, 2, tell)
+  livingMiracle(state, 'sun', b.dir, 0.05, tell)
+  assert.equal(b.growth, 0.3)
+})

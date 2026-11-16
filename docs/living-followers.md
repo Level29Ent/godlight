@@ -4,7 +4,7 @@ This update adds six connected systems to the existing solo home world, without 
 
 ## Followers and requests
 
-Follower IDs deterministically produce names and one of four traits, retained across existing saves. Devout followers generate 15% more prayer faith; industrious followers advance assigned gathering/attack work 15% faster. Gentle followers are more sensitive to a dreaded ruler; bold followers produce 20% more prayer faith under dread. The Worldbook lists living followers and focuses the camera on a chosen person.
+Follower IDs deterministically produce names and one of four traits, retained across existing saves. Devout followers generate 15% more prayer faith; industrious followers advance assigned gathering/attack work 15% faster. Gentle followers are more sensitive to a dreaded ruler; bold followers produce 20% more prayer faith under dread. The Worldbook lists living followers and focuses the camera on a chosen person. Home-world request/follower focus is disabled while visiting a colony; return home using Colony controls first.
 
 At 20 seconds, then at most every 45 seconds, an available follower may request sunlight, work, or farm rain. At most three requests exist. They expire after 90 seconds of simulation, without a penalty. Two seconds of nearby sunlight, an assigned job, or two seconds of rain on a completed farm answer the corresponding request. A response grants 6 faith and 12 happiness once. Bubbles are limited to the visible side of the home planet. Requests are also readable in the Worldbook; no precision click on a bubble is necessary.
 
@@ -23,7 +23,7 @@ The existing alignment meter now also affects daily behavior. At +25 alignment, 
 - **Sunshower:** channel rain for at least 2 seconds, then use sun within 12 seconds and 1.3 world units, near a completed farm. Nearby farms gain 30% growth, capped below an instant harvest.
 - **Thunderstorm:** the same rain preparation followed by a successful paid Lightning cast. Aliens within 1.8 units take 35 extra damage; followers in that area lose 15 happiness and panic for at least 4 seconds. This is dangerous, not a free protective miracle.
 
-Both share a 30-second cooldown. Normal Lightning unlocks/costs still apply. Recipes are always explained in the Worldbook; discoveries are recorded. A save does not preserve a partially channeled combo.
+Both share a 30-second cooldown, including after save/load. Normal Lightning unlocks/costs still apply. Recipes are always explained in the Worldbook; discoveries are recorded. A save does not preserve a partially channeled combo. Rain preparation is anchored to its starting location; sweeping across the planet starts a new preparation when leaving that area. Sunshower never reduces existing crop growth.
 
 ## Cosmetics and photos
 
