@@ -2,7 +2,7 @@
 
 import { Canvas } from '@react-three/fiber'
 import { Sparkles, Sun, CloudRain, Zap } from 'lucide-react'
-import { startDir, startGame, resetGame, useGame } from '@/lib/game/store'
+import { startDir, startGame, resetGame, startScenario, useGame } from '@/lib/game/store'
 import { PLANET_RADIUS } from '@/lib/game/planet'
 import { Scene } from './scene'
 import { Hud } from './hud'
@@ -14,6 +14,7 @@ import { LocalProgress } from './local-progress'
 import { GalaxyControls } from './galaxy-controls'
 import { CosmicCouncil } from './cosmic-council'
 import { RenderBudget } from './render-budget'
+import { ChallengeControls } from './challenge-controls'
 import { Worldbook, PhotoControls } from './worldbook'
 import { PhotoCapture } from './photo-capture'
 import { FieldGuide } from './field-guide'
@@ -70,11 +71,12 @@ export default function Game() {
       {!photo && started && <FieldGuide />}
       <Worldbook />
       <PhotoControls />
-      {!photo && <button type="button" aria-pressed={batterySaver} className="absolute bottom-0 left-0 z-10 min-h-11 rounded-tr-xl bg-[#0c1028] px-3 text-xs text-[#f5c451]" onClick={() => {
+      {!photo && <ChallengeControls />}
+      {!photo && <button type="button" aria-pressed={batterySaver} aria-label={`Battery saver ${batterySaver ? 'on' : 'off'}`} title="Battery saver" className="absolute bottom-0 left-0 z-10 min-h-11 rounded-tr-xl bg-[#0c1028] px-3 text-xs text-[#f5c451]" onClick={() => {
         const next = !batterySaver
         setBatterySaver(next)
         try { localStorage.setItem('godlight-battery', String(next)) } catch {}
-      }}>Battery saver {batterySaver ? 'on' : 'off'}</button>}
+      }}>Eco {batterySaver ? 'on' : 'off'}</button>}
       {contextLost && <div role="alert" className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#060817] p-6 text-center text-[#f4ecd8]">
         <p>The graphics connection was interrupted. Reload to recover your saved world.</p>
         <button type="button" onClick={() => location.reload()} className="rounded-full bg-[#f5c451] px-6 py-3 text-[#1a1406]">Reload game</button>
@@ -139,6 +141,7 @@ function GameOver({ onOpenSaves }: { onOpenSaves: () => void }) {
   const [restarting, setRestarting] = useState(false)
   const gameOver = useGame((s) => s.gameOver)
   const harvests = useGame((s) => s.harvests)
+  const scenario = useGame(s => s.chronicle.scenario)
   if (!gameOver) return null
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#060817]/75 px-6 text-center backdrop-blur-sm">
@@ -152,7 +155,7 @@ function GameOver({ onOpenSaves }: { onOpenSaves: () => void }) {
         onClick={async () => {
           if (restarting) return
           setRestarting(true)
-          try { await interstitialAtGameOver(); resetGame() }
+          try { if (scenario) startScenario(scenario); else { await interstitialAtGameOver(); resetGame() } }
           finally { setRestarting(false) }
         }}
         className="font-display mt-8 rounded-full bg-[#f5c451] px-8 py-3 font-semibold text-[#1a1406] transition hover:scale-105"

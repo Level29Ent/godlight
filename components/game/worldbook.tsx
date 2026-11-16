@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { BookHeart, Camera, X } from 'lucide-react'
+import { ChroniclePanels } from './chronicle-panels'
 import { AGES, type Tool } from '@/lib/game/config'
 import { identity, disposition, OPENING, PRAYER_TEXT, SKIES, STYLES } from '@/lib/game/living'
 import { cancelTether, hideOpening, setPaused, setPhotoMode, setTool, setWorldLook, state, useGame, useGameVersion } from '@/lib/game/store'
@@ -74,6 +75,7 @@ function WorldbookDialog({ onClose, onPhoto }: { onClose: () => void; onPhoto: (
       <button type="button" className={`${button} flex items-center gap-2`} onClick={onPhoto}><Camera className="size-4" aria-hidden="true" />Enter photo mode</button>
     </section>
     <section className="mt-5 space-y-2"><h3 className="font-display text-lg text-[#ffe2a1]">Civilization · {AGES[state.ageIndex].name}</h3><p className="text-sm leading-6">Each age changes robes and homes: stone paths, annexes, solar roofs, luminous halos, then floating crystals. New ages trigger a follower celebration. These visuals do not change building costs.</p><button type="button" className={button} onClick={() => hideOpening(!l.tutorialHidden)}>{l.tutorialHidden ? 'Show' : 'Hide'} guided beginning{l.tutorial >= 5 ? ' · complete' : ''}</button></section>
+    <ChroniclePanels />
     <section className="mt-5 space-y-2"><h3 className="font-display text-lg text-[#ffe2a1]">Meet your followers</h3><p className="text-xs leading-5">Devout: +15% prayer faith · Industrious: +15% assigned gathering/attack work · Gentle: sensitive to dread · Bold: stronger prayers under dread. Names and traits stay with a follower across saves.</p>
       <ul className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">{state.followers.filter(f => !f.lost).slice(0, 160).map(f => <li key={f.id}><button type="button" className={`${button} w-full text-left`} disabled={visitingColony} onClick={() => focus(f.id)}>{identity(f.id).name} · {identity(f.id).trait}<br /><span className="text-[#f4ecd8]/60">{Math.round(f.happiness)}% happy · {f.job?.kind ?? f.state} · Find</span></button></li>)}</ul>
     </section>

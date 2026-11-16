@@ -1,3 +1,4 @@
+import { gameRandom } from './random'
 import { createColonySurface, restoreColonySurface, tickColonySurface, COLONY_BUILDINGS, type ColonySurface } from './colony'
 import { Vector3 } from 'three'
 import { elevation, isBuildable, isLand, PLANET_RADIUS } from './planet'
@@ -52,7 +53,7 @@ function direction(c: Pick<Cosmos, 'rng'>) {
   const y = random(c) * 2 - 1, angle = random(c) * Math.PI * 2, r = Math.sqrt(1 - y * y)
   return new Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r)
 }
-export function createCosmos(seed = Math.floor(Math.random() * 0x100000000)): Cosmos {
+export function createCosmos(seed = Math.floor(gameRandom() * 0x100000000)): Cosmos {
   const c: Cosmos = {
     activeColony: null, v: 1, rng: seed >>> 0, alignment: 0, commandment: null,
     weather: { kind: 'clear', dir: [0, 1, 0], remaining: 0, next: 45 },
@@ -97,6 +98,7 @@ function site(s: GameState): Vector3 | null {
 export function actOnCosmos(s: GameState, action: CosmosAction): string {
   const c = s.cosmos
   if (!s.started || s.gameOver) return 'Begin a living world first.'
+  if (s.chronicle.scenario === 'restraint' && (action.type === 'shield' || action.type === 'colony-smite')) return 'Gentle Hands seals protective and destructive paid miracles.'
   if (action.type === 'visit') {
     s.cursor.down = false; s.cursor.pressed = false
     if (action.index === null) { c.activeColony = null; return 'Returned to the home world.' }
@@ -375,7 +377,7 @@ export function restoreCosmos(raw: unknown): Cosmos {
   fresh.shield = number(x.shield, 0, 0, 33); fresh.nextDisaster = number(x.nextDisaster, 110, 0, 250)
   fresh.averted = number(x.averted, 0, 0, 1e6); fresh.impacts = number(x.impacts, 0, 0, 1e6)
   fresh.survey = number(x.survey, 0, 0, 15)
-  if (x.weather && ['clear', 'drought', 'monsoon', 'blizzard'].includes(x.weather.kind)) fresh.weather = { kind: x.weather.kind, dir: dir(x.weather.dir), remaining: number(x.weather.remaining, 0, 0, 60), next: number(x.weather.next, 45, 0, 95) }
+  if (x.weather && ['clear', 'drought', 'monsoon', 'blizzard'].includes(x.weather.kind)) fresh.weather = { kind: x.weather.kind, dir: dir(x.weather.dir), remaining: number(x.weather.remaining, 0, 0, 120), next: number(x.weather.next, 45, 0, 95) }
   if (Array.isArray(x.projects)) for (const p of x.projects.slice(0, 4)) {
     if (!p || !Object.hasOwn(BLUEPRINTS, p.kind) || fresh.projects.some(existing => existing.kind === p.kind)) continue
     fresh.projects.push({ kind: p.kind, dir: dir(p.dir), progress: number(p.progress, 0, 0, 1), crew: crew(p.crew) })

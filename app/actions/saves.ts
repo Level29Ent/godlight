@@ -40,6 +40,9 @@ export async function saveGame(slot: number, name: string, data: unknown): Promi
   if (typeof window === 'undefined') return;
   assertSlot(slot);
 
+  if (data && typeof data === 'object' && (data as { chronicle?: { scenario?: unknown } }).chronicle?.scenario != null) {
+    throw new Error('Challenge worlds use a separate device save. Return to a normal world to use these slots.');
+  }
   const serializedData = JSON.stringify(data);
   if (serializedData.length > MAX_SAVE_BYTES) {
     throw new Error('Save data exceeds maximum allowed size');
@@ -50,7 +53,7 @@ export async function saveGame(slot: number, name: string, data: unknown): Promi
     slot,
     name: name || `Slot ${slot}`,
     faith: typeof state.faith === 'number' ? state.faith : 0,
-    followers: typeof state.followers === 'number' ? state.followers : 0,
+    followers: Array.isArray(state.followers) ? state.followers.filter((f: any) => f && !f.lost).length : 0,
     updatedAt: new Date().toISOString(),
     data,
   };

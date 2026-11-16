@@ -16,6 +16,7 @@ import {
 } from 'three'
 import { surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
+import { powerBlock, effectivePowerRadius } from '@/lib/game/power-feedback'
 import { state } from '@/lib/game/store'
 import { CURSOR_PREVIEWS, canBuildPreview, cursorColor } from '@/lib/game/cursor-preview'
 
@@ -74,10 +75,10 @@ export function CursorFX() {
 
     const spec = CURSOR_PREVIEWS[tool]
     const isBuild = spec.buildingScale !== null
-    const valid = isBuild ? canBuildPreview(dir, tool, state.buildings) : true
-    const color = cursorColor(tool, valid)
+    const valid = !powerBlock(state, tool, dir) && (!isBuild || canBuildPreview(dir, tool, state.buildings))
+    const color = valid ? cursorColor(tool, true) : cursorColor('house', false)
     if (ring.current) {
-      const r = spec.radius
+      const r = effectivePowerRadius(state, tool, dir, spec.radius)
       const pulse = 1 + Math.sin(t * 4) * 0.03
       ring.current.scale.setScalar(r * pulse)
       ringMat.color.copy(color)

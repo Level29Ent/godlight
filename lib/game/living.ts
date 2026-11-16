@@ -1,3 +1,4 @@
+import { rememberFollower } from './chronicles'
 import type { GameState, Follower } from './store'
 import type { Tool } from './config'
 import { Vector3 } from 'three'
@@ -70,6 +71,7 @@ export function tickLiving(s: GameState, dt: number, tell: (text: string) => voi
     if (!f || p.expires < s.time) return false
     if (p.kind === 'work' && f.job) p.progress = 1
     if (p.progress < 1) return true
+    rememberFollower(s, f.id, `had a prayer for ${p.kind} answered.`)
     l.answered++; s.faith += 6; f.happiness = Math.min(100, f.happiness + 12); f.jump = 0.6
     tell(`${identity(f.id).name}: Thank you for hearing me! +6 faith`)
     return false

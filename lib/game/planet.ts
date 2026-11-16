@@ -1,3 +1,4 @@
+import { gameRandom } from './random'
 import { createNoise3D } from 'simplex-noise'
 import { Color, IcosahedronGeometry, BufferAttribute, Vector3 } from 'three'
 
@@ -65,9 +66,9 @@ const tmpRand = new Vector3()
 
 /** Random direction within maxAngle (radians) of center. */
 export function randomDirNear(center: Vector3, maxAngle: number, out = new Vector3()) {
-  tmpRand.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)
+  tmpRand.set(gameRandom() - 0.5, gameRandom() - 0.5, gameRandom() - 0.5)
   tmpAxis.crossVectors(center, tmpRand).normalize()
-  const angle = Math.sqrt(Math.random()) * maxAngle
+  const angle = Math.sqrt(gameRandom()) * maxAngle
   return out.copy(center).applyAxisAngle(tmpAxis, angle).normalize()
 }
 

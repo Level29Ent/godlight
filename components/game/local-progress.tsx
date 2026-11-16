@@ -30,7 +30,7 @@ export function LocalProgress({ control = false }: { control?: boolean }) {
       document.removeEventListener('visibilitychange', onHidden)
     }
   }, [started, control])
-  if (warning && started) return <p role="status" className="absolute bottom-32 left-3 rounded bg-[#0c1028] p-2 text-xs text-[#f5c451]">Device save unavailable. Use cloud saves while online.</p>
+  if (warning && started) return <p role="status" className="absolute bottom-32 left-3 rounded bg-[#0c1028] p-2 text-xs text-[#f5c451]">Device saving unavailable. Keep this tab open and check browser storage before leaving.</p>
   if (!control || started || !available) return null
   return <button type="button" className="mt-3 rounded-full border border-[#f5c451]/50 px-6 py-3 text-sm text-[#f5c451]" onClick={() => {
     try {
