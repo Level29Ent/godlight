@@ -27,7 +27,7 @@ export function Planet() {
   }
 
   const onDown = (e: ThreeEvent<PointerEvent>) => {
-    if (!state.started || e.nativeEvent.button !== 0) return
+    if (state.photoMode || !state.started || e.nativeEvent.button !== 0) return
     if (state.tool === 'hand') {
       if (tetherClick(e.point.clone().normalize())) {
         e.stopPropagation()

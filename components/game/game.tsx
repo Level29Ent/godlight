@@ -14,6 +14,8 @@ import { LocalProgress } from './local-progress'
 import { GalaxyControls } from './galaxy-controls'
 import { CosmicCouncil } from './cosmic-council'
 import { RenderBudget } from './render-budget'
+import { Worldbook, PhotoControls } from './worldbook'
+import { PhotoCapture } from './photo-capture'
 import { FieldGuide } from './field-guide'
 import { interstitialAtGameOver } from '@/lib/game/monetization'
 import { recordCrash } from '@/lib/game/crash-log'
@@ -23,6 +25,7 @@ const SaveMenu = dynamic(() => import('./save-menu').then(module => module.SaveM
 const cameraPosition = startDir.clone().multiplyScalar(PLANET_RADIUS * 3.8).toArray() as [number, number, number]
 
 export default function Game() {
+  const photo = useGame(s => s.photoMode)
   const started = useGame(s => s.started)
   const activeColony = useGame(s => s.cosmos.activeColony)
   const [batterySaver, setBatterySaver] = useState(false)
@@ -52,23 +55,26 @@ export default function Game() {
         camera={{ position: cameraPosition, fov: 42, near: 0.1, far: 200 }}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
       >
+        <PhotoCapture />
         <RenderBudget batterySaver={batterySaver} />
         <Scene batterySaver={batterySaver} />
       </Canvas>
-      {activeColony === null && <Hud onOpenSaves={openSaves} />}
-      {activeColony === null && <CosmicCouncil />}
-      <GalaxyControls />
+      {!photo && activeColony === null && <Hud onOpenSaves={openSaves} />}
+      {!photo && activeColony === null && <CosmicCouncil />}
+      {!photo && <GalaxyControls />}
       <TitleScreen onOpenSaves={openSaves} />
       <GameOver onOpenSaves={openSaves} />
       {savesOpen && <SaveMenu open onClose={closeSaves} />}
       <Autosave />
       <LocalProgress />
-      {started && <FieldGuide />}
-      <button type="button" aria-pressed={batterySaver} className="absolute bottom-0 left-0 z-10 min-h-11 rounded-tr-xl bg-[#0c1028] px-3 text-xs text-[#f5c451]" onClick={() => {
+      {!photo && started && <FieldGuide />}
+      <Worldbook />
+      <PhotoControls />
+      {!photo && <button type="button" aria-pressed={batterySaver} className="absolute bottom-0 left-0 z-10 min-h-11 rounded-tr-xl bg-[#0c1028] px-3 text-xs text-[#f5c451]" onClick={() => {
         const next = !batterySaver
         setBatterySaver(next)
         try { localStorage.setItem('godlight-battery', String(next)) } catch {}
-      }}>Battery saver {batterySaver ? 'on' : 'off'}</button>
+      }}>Battery saver {batterySaver ? 'on' : 'off'}</button>}
       {contextLost && <div role="alert" className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#060817] p-6 text-center text-[#f4ecd8]">
         <p>The graphics connection was interrupted. Reload to recover your saved world.</p>
         <button type="button" onClick={() => location.reload()} className="rounded-full bg-[#f5c451] px-6 py-3 text-[#1a1406]">Reload game</button>

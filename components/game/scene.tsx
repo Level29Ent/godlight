@@ -3,6 +3,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Stars } from '@react-three/drei'
+import { LivingWorld } from './living-world'
+import { SKIES } from '@/lib/game/living'
 import { LivingCosmos } from './living-cosmos'
 import { SolarSystem } from './solar-system'
 import { CameraRig } from './camera-rig'
@@ -145,13 +147,16 @@ function ShakeGroup({ children }: { children: React.ReactNode }) {
 
 export function Scene({ batterySaver = false }: { batterySaver?: boolean }) {
   const colony = useGame(s => s.cosmos.activeColony)
-  if (colony !== null) return <><color attach="background" args={['#060817']} /><Simulation /><ColonySurface index={colony} /></>
+  const sky = useGame(s => s.living.sky)
+  const photo = useGame(s => s.photoMode)
+  if (colony !== null) return <><color attach="background" args={[SKIES[sky].color]} /><Simulation /><ColonySurface index={colony} /></>
   return (
     <>
-      <color attach="background" args={['#060817']} />
-      <fog attach="fog" args={['#060817', 55, 130]} />
+      <color attach="background" args={[SKIES[sky].color]} />
+      <fog attach="fog" args={[SKIES[sky].color, 55, 130]} />
       <Stars radius={110} depth={50} count={batterySaver ? 1200 : 6000} factor={5} saturation={0.3} fade speed={0.6} />
       <SolarSystem />
+      <LivingWorld />
       <hemisphereLight args={['#cfe8ff', '#3b2c4f', 0.7]} />
       <ambientLight intensity={0.18} />
       <CameraLight />
@@ -167,7 +172,7 @@ export function Scene({ batterySaver = false }: { batterySaver?: boolean }) {
         <Invaders />
         <Tether />
         <AmbientClouds />
-        <CursorFX />
+        {!photo && <CursorFX />}
         <Effects />
         <ParticleSystem kind="faith" />
         <ParticleSystem kind="ember" />

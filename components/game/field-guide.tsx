@@ -57,6 +57,7 @@ function GuideDialog({ started, onClose }: { started: boolean; onClose: () => vo
       <p>Drag the stars to orbit. Pinch or scroll to zoom. Hold on land to use the selected power.</p>
       <p className="mt-2">Keyboard: arrows / WASD to orbit · + / − to zoom · F to flip · R to recenter · M for music · N for sound effects. Power keys appear in Choose power on desktop.</p>
     </section>
+    <p className="mt-4 text-sm leading-6 text-[#f4ecd8]/75">Open Worldbook during play to meet followers, answer prayers, learn miracle combinations and unlock planet styles. Your guided beginning can be hidden or restored there too.</p>
     <p className="mt-4 text-xs leading-5 text-[#f4ecd8]/60">Device progress saves every 15 seconds when storage is available. Use “Continue on this device” on your next visit. Cloud saves are separate and require a connection.</p>
     <button type="button" onClick={() => dialog.current?.close()} className="mt-5 min-h-11 w-full rounded-full bg-[#f5c451] px-6 py-3 font-semibold text-[#1a1406]">{started ? 'Resume world' : 'Ready to begin'}</button>
   </dialog>

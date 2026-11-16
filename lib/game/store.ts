@@ -1,3 +1,4 @@
+import { createLiving, restoreLiving, tickLiving, livingMiracle, traitOf, prayerFactor, disposition, type Living } from './living'
 import { createLandNavigator } from './navigation'
 import { actOnCosmos, createCosmos, restoreCosmos, tickCosmos, cosmicDuty, releaseCosmicDuty, cosmicFaith, faithMultiplier, climateCropFactor, alignMiracle, type Cosmos, type CosmosAction } from './cosmos'
 import { useSyncExternalStore } from 'react'
@@ -247,6 +248,8 @@ export interface ParticleRequest {
 }
 
 export interface GameState {
+  living: Living
+  photoMode: boolean
   cosmos: Cosmos
   started: boolean
   gameOver: boolean
@@ -308,6 +311,8 @@ export const startDir = findStartDir()
 
 function createState(): GameState {
   return {
+    living: createLiving(),
+    photoMode: false,
     cosmos: createCosmos(),
     started: false,
     gameOver: false,
@@ -632,6 +637,7 @@ export function grantBoost(seconds: number) {
 }
 
 export function resetGame() {
+  setPaused(false, 'photo')
   const fresh = createState()
   Object.assign(state, fresh)
   populateWorld(state)
@@ -647,11 +653,31 @@ export function commandCosmos(action: CosmosAction) {
   notify(true)
 }
 
+export function setWorldLook(look: Partial<Pick<Living, 'sky' | 'rings' | 'moon' | 'style'>>) {
+  const l = state.living
+  const restored = restoreLiving({ ...l, ...look }, state.ageIndex, state.time)
+  l.sky = restored.sky; l.rings = restored.rings; l.moon = restored.moon; l.style = restored.style
+  notify(true)
+}
+
+export function setPhotoMode(active: boolean) {
+  state.photoMode = active
+  setPaused(active, 'photo')
+  cancelTether()
+  notify(true)
+}
+
+export function hideOpening(hidden: boolean) {
+  state.living.tutorialHidden = hidden
+  notify(true)
+}
+
 // ---------- save / load ----------
 
 type V3 = [number, number, number]
 
 export interface SaveData {
+  living?: Living
   cosmos?: Cosmos
   v: 1
   faith: number
@@ -690,6 +716,7 @@ export function exportSave(): SaveData {
   return {
     v: 1,
     cosmos: structuredClone(s.cosmos),
+    living: { ...structuredClone(s.living), cast: null, prayers: [] },
     faith: round(s.faith),
     ageIndex: s.ageIndex,
     time: round(s.time),
@@ -736,6 +763,7 @@ const JOB_KINDS: JobKind[] = ['chop', 'mine', 'farm', 'build', 'pray', 'fight', 
 export function importSave(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object' || (raw as SaveData).v !== 1) return false
   const data = raw as SaveData
+  setPaused(false, 'photo')
   const fresh = createState()
   Object.assign(state, fresh)
 
@@ -743,6 +771,7 @@ export function importSave(raw: unknown): boolean {
   state.faith = Math.max(0, num(data.faith, 30))
   state.ageIndex = Math.max(0, Math.min(AGES.length - 1, Math.floor(num(data.ageIndex))))
   state.time = num(data.time)
+  state.living = restoreLiving(data.living, state.ageIndex, state.time)
   state.harvests = num(data.harvests)
   state.tool = data.tool in TOOL_BY_ID && TOOL_BY_ID[data.tool].unlockAge <= state.ageIndex ? data.tool : 'sun'
   state.objectiveIndex = Math.max(0, Math.min(OBJECTIVES.length, Math.floor(num(data.objectiveIndex))))
@@ -831,6 +860,7 @@ export function setCursor(dir: Vector3 | null) {
 }
 
 export function pressCursor(dir: Vector3) {
+  if (isPaused()) return
   setCursor(dir)
   state.cursor.down = true
   state.cursor.pressed = true
@@ -861,6 +891,7 @@ export function cancelTether() {
 }
 
 export function beginTether(index: number) {
+  if (isPaused()) return
   const f = state.followers[index]
   if (!f || !state.started || f.lost) return
   const t = state.tether
@@ -883,6 +914,7 @@ export function beginTether(index: number) {
 
 /** Click on the planet while a follower is tethered but not being dragged. Returns true if consumed. */
 export function tetherClick(dir: Vector3) {
+  if (isPaused()) return false
   const t = state.tether
   if (t.followerId === null || t.dragging) return false
   const f = state.followers.find((x) => x.id === t.followerId)
@@ -892,6 +924,7 @@ export function tetherClick(dir: Vector3) {
 }
 
 export function pokeFollower(index: number) {
+  if (isPaused()) return
   const f = state.followers[index]
   if (!f || !state.started) return
   if (f.lost) f.heat += 0.6
@@ -1502,7 +1535,7 @@ function strike(f: Follower, job: Job, dt: number, targetDir: Vector3, hit: () =
     return
   }
   f.state = 'build'
-  job.work += dt
+  job.work += dt * (traitOf(f.id) === 'industrious' ? 1.15 : 1)
   if (job.work >= 0.7) {
     job.work = 0
     f.jump = 0.3
@@ -1574,7 +1607,7 @@ function runJob(f: Follower, dt: number) {
         return
       }
       f.state = 'build'
-      job.work += dt
+      job.work += dt * (traitOf(f.id) === 'industrious' ? 1.15 : 1)
       if (job.work >= 1.2) {
         job.work = 0
         sfx('chop')
@@ -1617,7 +1650,7 @@ function runJob(f: Follower, dt: number) {
         return
       }
       f.state = 'build'
-      job.work += dt
+      job.work += dt * (traitOf(f.id) === 'industrious' ? 1.15 : 1)
       if (job.work >= 1.4) {
         job.work = 0
         sfx('chop')
@@ -2080,7 +2113,7 @@ function decide(f: Follower) {
   }
 
   const prayChance = state.cosmos.commandment === 'peace' ? 0.6 : state.fearTimer > 0 ? 0.8 : f.happiness > 35 ? 0.45 : 0.1
-  if (Math.random() < prayChance) {
+  if (Math.random() < Math.min(0.95, prayChance + (disposition(state.cosmos.alignment) === 'dreaded' ? 0.1 : 0))) {
     const temples = state.buildings.filter((b) => b.type === 'temple' && b.progress >= 1)
     if (temples.length > 0 && Math.random() < 0.65) {
       const temple = pick(temples)
@@ -2282,11 +2315,13 @@ function applyCursor(dt: number) {
     else if (tool === 'bounty') castBounty(dir)
     else if (tool === 'aurora') castAurora()
     else if (tool === 'house' || tool === 'farm' || tool === 'temple' || tool === 'well' || tool === 'monument') placeBuilding(tool, dir)
+    if (state.faith < faithBefore) livingMiracle(state, tool, dir, 0, text => say(text))
     if (state.faith < faithBefore) alignMiracle(state.cosmos, !['lightning', 'meteor', 'quake', 'tornado'].includes(tool), 3)
     if (castSound) sfx(state.faith < faithBefore ? castSound : 'error')
   }
 
   if (!cursor.down) return
+  if (tool === 'sun' || tool === 'rain') livingMiracle(state, tool, dir, dt, text => say(text))
 
   if (tool === 'sun') {
     alignMiracle(state.cosmos, true, dt * 0.15)
@@ -2531,7 +2566,7 @@ function updateEconomy(dt: number) {
   for (const f of state.followers) {
     if (f.lost) continue
     if (f.state === 'pray' && f.burning === 0) {
-      const r = (0.35 + (f.happiness / 100) * 1.1) * (f.atTemple ? 2.6 : 1) * fearMult * nightMult
+      const r = (0.35 + (f.happiness / 100) * 1.1) * (f.atTemple ? 2.6 : 1) * fearMult * nightMult * prayerFactor(f, state.cosmos.alignment)
       rate += r
       if (isNight) state.stats.nightPrayers += dt
       if (Math.random() < dt * r * 0.9) emit('faith', f.dir, 1, 0.02, 0.4)
@@ -2587,6 +2622,7 @@ function updateEconomy(dt: number) {
   while (age + 1 < AGES.length && state.pop >= AGES[age + 1].pop) age++
   if (age > state.ageIndex) {
     state.ageIndex = age
+    for (const f of state.followers) if (!f.lost) { f.jump = 0.6; f.happiness = Math.min(100, f.happiness + 8) }
     sfx('ageUp')
     const unlocked = Object.values(TOOL_BY_ID).filter((t) => t.unlockAge === age)
     say(
@@ -2861,6 +2897,7 @@ export function setPaused(value: boolean, owner = 'legacy') {
   if (value) {
     setSoundscape('peace', 0)
     state.cursor.down = false
+    state.cursor.pressed = false
     setLoop('sun', false)
     setLoop('rain', false)
   }
@@ -2896,6 +2933,7 @@ export function tick(dt: number) {
   })
   setSoundscape(state.cosmos.disaster && !state.cosmos.disaster.resolved ? 'disaster' : state.cosmos.weather.kind !== 'clear' ? 'storm' : state.fearTimer > 5 ? 'wrath' : 'peace', state.ageIndex)
   updateEconomy(dt)
+  if (!state.gameOver) tickLiving(state, dt, text => say(text, 'good'))
   updateObjectives()
   updateChallenges(dt)
   notify()
