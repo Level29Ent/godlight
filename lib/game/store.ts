@@ -1,3 +1,5 @@
+import { createWildlife, restoreWildlife, tickWildlife, type Wildlife } from './wildlife'
+import { inspectionTitle, type CareIssue, type Inspection } from './world-care'
 import { focusCamera, setKeyAxes } from './camera'
 import { gameRandom, seedSimulation, simulationSeed } from './random'
 import { createChronicle, restoreChronicle, tickChronicle, rememberFollower, ascend, SCENARIOS, type Chronicle, type Scenario } from './chronicles'
@@ -252,6 +254,10 @@ export interface ParticleRequest {
 }
 
 export interface GameState {
+  wildlife: Wildlife
+  inspectMode: boolean
+  inspection: Inspection
+  finaleReplay: boolean
   chronicle: Chronicle
   living: Living
   photoMode: boolean
@@ -316,6 +322,10 @@ export const startDir = findStartDir()
 
 function createState(): GameState {
   return {
+    wildlife: createWildlife(),
+    inspectMode: false,
+    inspection: null,
+    finaleReplay: false,
     chronicle: createChronicle(),
     living: createLiving(),
     photoMode: false,
@@ -620,6 +630,7 @@ export function setTool(tool: Tool) {
     sfx('error')
     return
   }
+  state.inspectMode = false; state.inspection = null
   if (state.tool !== tool) sfx('select')
   state.tool = tool
   notify(true)
@@ -677,6 +688,39 @@ export function commandCosmos(action: CosmosAction) {
   say(message)
   notify(true)
 }
+
+export function setInspectMode(active: boolean) {
+  cancelTether()
+  state.cursor.down = false; state.cursor.pressed = false
+  state.inspectMode = active
+  if (active) state.cosmos.activeColony = null
+  if (!active) state.inspection = null
+  notify(true)
+}
+export function inspectEntity(selection: Inspection) {
+  if (state.cosmos.activeColony !== null || state.photoMode || state.gameOver) return
+  if (selection && !inspectionTitle(state, selection)) return
+  state.inspection = selection
+  if (selection) { state.inspectMode = true; cancelTether(); state.cursor.down = false; state.cursor.pressed = false }
+  notify(true)
+}
+export function focusCareTarget(target: CareIssue['target']) {
+  if (state.photoMode || state.gameOver || !state.started) return false
+  if (target.kind === 'colony') {
+    if (!state.cosmos.colonies[target.id]?.surveyed) return false
+    state.cosmos.activeColony = target.id
+    setInspectMode(false)
+    return true
+  }
+  const entity = target.kind === 'follower' ? state.followers.find(f => f.id === target.id) : state.buildings.find(b => b.id === target.id)
+  if (!entity) return false
+  state.cosmos.activeColony = null
+  inspectEntity({ kind: target.kind, id: target.id })
+  focusCamera(entity.dir)
+  return true
+}
+export function showFinale() { if (state.chronicle.ascended) { state.finaleReplay = true; notify(true) } }
+export function dismissFinale() { state.finaleReplay = false; state.chronicle.finaleSeen = true; notify(true) }
 
 export function ascendWorld() {
   if (ascend(state)) { say('Celestial Ascension! Your sanctuary shines among the stars.', 'good'); sfx('ageUp') }
@@ -738,6 +782,7 @@ export function hideOpening(hidden: boolean) {
 type V3 = [number, number, number]
 
 export interface SaveData {
+  wildlife?: Wildlife
   chronicle?: Chronicle
   rng?: number | null
   living?: Living
@@ -778,6 +823,7 @@ export function exportSave(): SaveData {
   const s = state
   return {
     v: 1,
+    wildlife: { ...s.wildlife },
     chronicle: structuredClone(s.chronicle),
     rng: simulationSeed(),
     cosmos: structuredClone(s.cosmos),
@@ -838,6 +884,7 @@ export function importSave(raw: unknown): boolean {
   state.ageIndex = Math.max(0, Math.min(AGES.length - 1, Math.floor(num(data.ageIndex))))
   state.time = num(data.time)
   state.living = restoreLiving(data.living, state.ageIndex, state.time)
+  state.wildlife = restoreWildlife(data.wildlife)
   state.chronicle = restoreChronicle(data.chronicle, state.time, state.ageIndex, state.cosmos.averted, state.cosmos.impacts)
   state.harvests = num(data.harvests)
   state.tool = data.tool in TOOL_BY_ID && TOOL_BY_ID[data.tool].unlockAge <= state.ageIndex ? data.tool : 'sun'
@@ -930,7 +977,7 @@ export function setCursor(dir: Vector3 | null) {
 }
 
 export function pressCursor(dir: Vector3) {
-  if (isPaused()) return
+  if (isPaused() || state.inspectMode) return
   setCursor(dir)
   state.cursor.down = true
   state.cursor.pressed = true
@@ -3012,6 +3059,8 @@ export function tick(dt: number) {
   if (!state.gameOver) {
     tickLiving(state, dt, text => say(text, 'good'))
     tickChronicle(state, dt, text => say(text, 'good'))
+    tickWildlife(state, dt)
+    if (state.inspection && !inspectionTitle(state, state.inspection)) state.inspection = null
     if (state.chronicle.colony[0].complete) for (const b of state.buildings) if (b.burning === 0) b.hp = Math.min(maxHp(b.type), b.hp + dt * 0.3)
   }
   updateObjectives()

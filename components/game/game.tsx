@@ -15,6 +15,8 @@ import { GalaxyControls } from './galaxy-controls'
 import { CosmicCouncil } from './cosmic-council'
 import { RenderBudget } from './render-budget'
 import { ChallengeControls } from './challenge-controls'
+import { InspectionCard } from './world-care'
+import { AscensionFinale } from './ascension-finale'
 import { Worldbook, PhotoControls } from './worldbook'
 import { PhotoCapture } from './photo-capture'
 import { FieldGuide } from './field-guide'
@@ -70,6 +72,8 @@ export default function Game() {
       <LocalProgress />
       {!photo && started && <FieldGuide />}
       <Worldbook />
+      <InspectionCard />
+      <AscensionFinale />
       <PhotoControls />
       {!photo && <ChallengeControls />}
       {!photo && <button type="button" aria-pressed={batterySaver} aria-label={`Battery saver ${batterySaver ? 'on' : 'off'}`} title="Battery saver" className="absolute bottom-0 left-0 z-10 min-h-11 rounded-tr-xl bg-[#0c1028] px-3 text-xs text-[#f5c451]" onClick={() => {

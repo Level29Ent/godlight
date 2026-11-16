@@ -20,7 +20,7 @@ import { surfacePoint } from '@/lib/game/planet'
 import { facingQuaternion, surfaceQuaternion } from '@/lib/game/orient'
 import { disposition } from '@/lib/game/living'
 import { isSupporter } from '@/lib/game/monetization'
-import { beginTether, pokeFollower, state, type Follower, type JobKind } from '@/lib/game/store'
+import { beginTether, inspectEntity, isPaused, pokeFollower, state, type Follower, type JobKind } from '@/lib/game/store'
 
 const MAX = 160
 const FIRE = new Color(3, 1.1, 0.25)
@@ -213,7 +213,13 @@ export function Followers() {
   })
 
   const onGrab = (e: ThreeEvent<PointerEvent>) => {
-    if (state.photoMode || state.tool !== 'hand' || e.instanceId === undefined) return
+    if (state.photoMode || isPaused() || e.instanceId === undefined) return
+    if (state.inspectMode) {
+      const f = state.followers[e.instanceId]
+      if (f) { e.stopPropagation(); inspectEntity({ kind: 'follower', id: f.id }); claimPointer() }
+      return
+    }
+    if (state.tool !== 'hand') return
     e.stopPropagation()
     pokeFollower(e.instanceId)
     beginTether(e.instanceId)

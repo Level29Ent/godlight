@@ -3,6 +3,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Stars } from '@react-three/drei'
+import { WildlifeScene } from './wildlife'
+import { ConstructionLabel } from './world-care'
 import { LivingWorld } from './living-world'
 import { SKIES } from '@/lib/game/living'
 import { LivingCosmos } from './living-cosmos'
@@ -157,6 +159,7 @@ export function Scene({ batterySaver = false }: { batterySaver?: boolean }) {
       <Stars radius={110} depth={50} count={batterySaver ? 1200 : 6000} factor={5} saturation={0.3} fade speed={0.6} />
       <SolarSystem />
       <LivingWorld />
+      <ConstructionLabel />
       <hemisphereLight args={['#cfe8ff', '#3b2c4f', 0.7]} />
       <ambientLight intensity={0.18} />
       <CameraLight />
@@ -169,6 +172,7 @@ export function Scene({ batterySaver = false }: { batterySaver?: boolean }) {
         <Rocks />
         <Buildings />
         <Followers />
+        <WildlifeScene />
         <Invaders />
         <Tether />
         <AmbientClouds />

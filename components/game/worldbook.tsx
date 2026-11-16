@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { BookHeart, Camera, X } from 'lucide-react'
+import { CareOverview } from './world-care'
 import { ChroniclePanels } from './chronicle-panels'
 import { AGES, type Tool } from '@/lib/game/config'
 import { identity, disposition, OPENING, PRAYER_TEXT, SKIES, STYLES } from '@/lib/game/living'
@@ -55,6 +56,7 @@ function WorldbookDialog({ onClose, onPhoto }: { onClose: () => void; onPhoto: (
   }
   return <dialog ref={dialog} onClose={onClose} aria-labelledby="worldbook-title" className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%_-_1.5rem)] max-w-2xl overflow-y-auto overscroll-contain rounded-3xl border border-[#f5c451]/30 bg-[#0c1028] p-5 text-[#f4ecd8] shadow-2xl backdrop:bg-[#060817]/85">
     <header className="flex items-center justify-between gap-3"><div><p className="text-[10px] uppercase tracking-[0.3em] text-[#f5c451]">World paused</p><h2 id="worldbook-title" className="font-display text-2xl">Your living world</h2></div><button autoFocus type="button" className={button} onClick={close}>Close</button></header>
+    <CareOverview onLocate={onClose} />
     {visitingColony && <p role="status" className="mt-4 text-sm text-[#ffe2a1]">These requests and followers belong to your home world. Return home from Colony controls to find or help them. Planet styles apply at home; photo mode captures your current view.</p>}
     <section className="mt-5 space-y-2"><h3 className="font-display text-lg text-[#ffe2a1]">Prayers · {l.answered} answered</h3><p className="text-xs leading-5 text-[#f4ecd8]/70">Requests last 90 seconds of play. Answering one grants 6 faith and cheers its follower. Time waits while this book is open.</p>
       {!l.prayers.length && <p className="text-sm">Listen as you play: your people will ask for warmth, work or rain.</p>}

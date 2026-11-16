@@ -6,7 +6,15 @@ export const SCENARIOS = {
   restraint: { name: 'Gentle Hands', seed: 29402, text: 'Reach 8 home followers with Sun, Rain, Touch and buildings only. Destructive powers and paid miracles are sealed.', seconds: 0 },
 } as const
 export type Scenario = keyof typeof SCENARIOS
+export interface WorldStory {
+  time: number; followers: number; harvests: number; prayers: number; averted: number; colonies: number; wonders: number; memories: string[]
+}
+export function worldStory(s: GameState): WorldStory {
+  return { time: Math.max(0, s.time), followers: s.followers.filter(f => !f.lost).length, harvests: s.harvests, prayers: s.living.answered, averted: s.cosmos.averted, colonies: s.cosmos.colonies.filter(p => p.stage === 'settled').length, wonders: s.cosmos.projects.filter(p => p.progress >= 1).length, memories: s.chronicle.entries.slice(-5).map(e => e.text) }
+}
 export interface Chronicle {
+  finaleSeen: boolean
+  story: WorldStory | null
   entries: { time: number; text: string; followerId: number | null }[]
   favorites: number[]
   colony: { cargo: number; secure: number; complete: boolean }[]
@@ -15,7 +23,7 @@ export interface Chronicle {
   last: { averted: number; impacts: number; age: number }
 }
 export function createChronicle(): Chronicle {
-  return { entries: [], favorites: [], colony: Array.from({ length: 3 }, () => ({ cargo: 0, secure: 0, complete: false })), ascended: false, scenario: null, won: false, last: { averted: 0, impacts: 0, age: 0 } }
+  return { finaleSeen: true, story: null, entries: [], favorites: [], colony: Array.from({ length: 3 }, () => ({ cargo: 0, secure: 0, complete: false })), ascended: false, scenario: null, won: false, last: { averted: 0, impacts: 0, age: 0 } }
 }
 export function record(s: GameState, text: string, followerId: number | null = null) {
   s.chronicle.entries.push({ time: Math.max(0, s.time), text: text.slice(0, 200), followerId })
@@ -29,6 +37,11 @@ export function restoreChronicle(raw: unknown, time: number, age: number, averte
   const x = raw as Partial<Chronicle>
   c.scenario = x.scenario === 'drought' || x.scenario === 'restraint' ? x.scenario : null
   c.won = x.won === true; c.ascended = x.ascended === true
+  c.finaleSeen = x.finaleSeen !== false
+  if (c.ascended && x.story && typeof x.story === 'object') {
+    const a = x.story
+    c.story = { time: finite(a.time, 1e9), followers: Math.floor(finite(a.followers, 10000)), harvests: Math.floor(finite(a.harvests, 1e9)), prayers: Math.floor(finite(a.prayers, 1e6)), averted: Math.floor(finite(a.averted, 1e6)), colonies: Math.floor(finite(a.colonies, 3)), wonders: Math.floor(finite(a.wonders, 4)), memories: Array.isArray(a.memories) ? a.memories.slice(-5).filter(v => typeof v === 'string').map(v => v.slice(0, 200)) : [] }
+  }
   if (Array.isArray(x.entries)) c.entries = x.entries.slice(-80).filter(e => e && typeof e === 'object' && typeof e.text === 'string').map(e => ({ text: e.text.slice(0, 200), time: Math.min(time, finite(e.time, 1e9)), followerId: typeof e.followerId === 'number' && Number.isSafeInteger(e.followerId) && e.followerId > 0 ? e.followerId : null }))
   if (Array.isArray(x.favorites)) c.favorites = [...new Set(x.favorites.filter(v => Number.isSafeInteger(v) && v > 0))].slice(0, 8)
   if (Array.isArray(x.colony)) for (let i = 0; i < 3; i++) {
@@ -57,6 +70,8 @@ export function ascend(s: GameState) {
   s.faith -= 1000; s.chronicle.ascended = true
   for (const f of s.followers) { f.happiness = 100; f.jump = 0.6 }
   record(s, 'Celestial Ascension: the world becomes a sanctuary among the stars.')
+  s.chronicle.story = worldStory(s)
+  s.chronicle.finaleSeen = false
   return true
 }
 export function tickChronicle(s: GameState, dt: number, tell: (text: string) => void) {
