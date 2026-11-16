@@ -657,6 +657,18 @@ export function resetGame() {
   notify(true)
 }
 
+export function returnToTitle() {
+  seedSimulation(null)
+  invasionActive = false
+  setPaused(false, 'photo')
+  setKeyAxes({ yaw: 0, pitch: 0, zoom: 0 })
+  Object.assign(state, createState())
+  populateWorld(state)
+  focusCamera(startDir)
+  updateStats()
+  notify(true)
+}
+
 export function commandCosmos(action: CosmosAction) {
   if (isPaused()) return
   const settlers = action.type === 'launch' ? [...state.followers] : []
