@@ -20,7 +20,7 @@ export function FieldGuide() {
   if (gameOver) return null
   return <>
     <button ref={trigger} type="button" onClick={() => setOpen(true)} className={started
-      ? 'absolute bottom-14 left-3 z-20 flex min-h-11 items-center gap-2 rounded-xl border border-[#f5c451]/40 bg-[#0c1028]/95 px-3 text-xs text-[#ffe2a1] sm:left-5'
+      ? 'game-menu-button flex min-h-11 items-center gap-2 rounded-xl border border-[#f5c451]/40 bg-[#0c1028]/95 px-3 text-xs text-[#ffe2a1]'
       : 'mt-3 flex min-h-11 items-center gap-2 rounded-full px-5 text-sm text-[#f5c451] underline underline-offset-4'}>
       <BookOpen className="size-4" aria-hidden="true" />{started ? 'Pause & guide' : 'How to play'}
     </button>

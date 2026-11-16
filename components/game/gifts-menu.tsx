@@ -76,7 +76,7 @@ export function GiftsMenu({ open, onClose }: { open: boolean; onClose: () => voi
 
   return (
     <div
-      className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-[#060817]/70 p-4 backdrop-blur-sm"
+      className="pointer-events-auto absolute inset-0 z-50 flex items-center justify-center bg-[#060817]/70 p-4 backdrop-blur-sm"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

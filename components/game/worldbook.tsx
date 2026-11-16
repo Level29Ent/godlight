@@ -19,7 +19,7 @@ export function Worldbook() {
   const trigger = useRef<HTMLButtonElement>(null)
   if (!started || gameOver || photo) return null
   return <>
-    <button ref={trigger} type="button" className={`${button} absolute bottom-0 right-0 z-20 flex items-center gap-2 bg-[#0c1028]/95`} onClick={() => setOpen(true)}><BookHeart className="size-4" aria-hidden="true" />Worldbook</button>
+    <button ref={trigger} type="button" className={`${button} game-menu-button flex items-center gap-2 bg-[#0c1028]/95`} onClick={() => setOpen(true)}><BookHeart className="size-4" aria-hidden="true" />Worldbook</button>
     <OpeningCard />
     {open && <WorldbookDialog onClose={() => { setOpen(false); trigger.current?.focus() }} onPhoto={() => { setOpen(false); setPhotoMode(true) }} />}
   </>
@@ -29,7 +29,7 @@ function OpeningCard() {
   useGameVersion()
   const l = state.living, step = OPENING[l.tutorial]
   if (!step || l.tutorialHidden || state.cosmos.activeColony !== null) return null
-  return <section aria-label="Guided beginning" className="absolute bottom-28 left-3 z-10 w-[min(17rem,calc(100vw_-_1.5rem))] rounded-2xl border border-[#f5c451]/30 bg-[#0c1028]/95 p-3 text-xs text-[#f4ecd8]">
+  return <section aria-label="Guided beginning" className="game-guidance game-floating-panel w-[min(17rem,calc(100vw_-_1.5rem))] rounded-2xl border border-[#f5c451]/30 bg-[#0c1028]/95 p-3 text-xs text-[#f4ecd8]">
     <div className="flex items-center justify-between gap-3"><h2 className="font-display text-[#ffe2a1]">{l.tutorial + 1}/5 · {step.title}</h2><button type="button" aria-label="Hide guided beginning" className="flex size-11 shrink-0 items-center justify-center" onClick={() => hideOpening(true)}><X className="size-4" /></button></div>
     <p className="leading-5">{step.text}</p>
     <button type="button" className={`${button} mt-2`} onClick={() => setTool(step.tool)}>Choose {step.tool === 'hand' ? 'Touch' : step.tool} · +{step.reward} faith on completion</button>

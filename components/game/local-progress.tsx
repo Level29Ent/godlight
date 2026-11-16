@@ -32,7 +32,7 @@ export function LocalProgress({ control = false }: { control?: boolean }) {
       document.removeEventListener('visibilitychange', onHidden)
     }
   }, [started, control])
-  if (warning && started) return <p role="status" className="absolute bottom-32 left-3 rounded bg-[#0c1028] p-2 text-xs text-[#f5c451]">Device saving unavailable. Keep this tab open and check browser storage before leaving.</p>
+  if (warning && started) return <p role="status" className="game-dock-alert absolute left-3 z-40 max-w-[calc(100vw_-_1.5rem)] rounded bg-[#0c1028] p-2 text-xs text-[#f5c451]">Device saving unavailable. Keep this tab open and check browser storage before leaving.</p>
   if (!control || started || !available) return null
   return <div className="mt-3 flex flex-col items-center gap-2">
     <button type="button" className="rounded-full border border-[#f5c451]/50 px-6 py-3 text-sm text-[#f5c451]" onClick={() => {

@@ -17,8 +17,8 @@ export function ChallengeControls() {
   const [error, setError] = useState('')
   const trigger = useRef<HTMLButtonElement>(null)
   return <>
-    {!scenario && <button ref={trigger} type="button" className={`${button} absolute bottom-0 left-1/2 z-10 -translate-x-1/2`} onClick={() => setOpen(true)} aria-haspopup="dialog">Challenges</button>}
-    {scenario && <section aria-label="Challenge progress" className="absolute bottom-28 left-3 z-10 w-56 max-w-[90vw] rounded-xl border border-[#c5b1ff]/40 bg-[#0c1028]/95 p-2 text-center text-xs text-[#f4ecd8]">
+    {!scenario && <button ref={trigger} type="button" className={`${button} game-menu-button`} onClick={() => setOpen(true)} aria-haspopup="dialog">Challenges</button>}
+    {scenario && <section aria-label="Challenge progress" className="game-guidance game-floating-panel w-56 max-w-[90vw] rounded-xl border border-[#c5b1ff]/40 bg-[#0c1028]/95 p-2 text-center text-xs text-[#f4ecd8]">
       <p>{SCENARIOS[scenario].name} · Seed {SCENARIOS[scenario].seed} · {state.chronicle.won ? 'Completed!' : `${Math.floor(state.time)}s · ${state.harvests} harvests · ${state.pop} followers`}</p>
       <button type="button" className="min-h-11 underline" aria-expanded={details} onClick={() => setDetails(v => !v)}>{details ? 'Hide challenge controls' : 'Goal & leave challenge'}</button>
       {details && <>
@@ -31,7 +31,7 @@ export function ChallengeControls() {
       </>}
     </section>}
     {open && !scenario && <ChallengePicker started={started} onClose={() => { setOpen(false); trigger.current?.focus() }} />}
-    {error && <p role="alert" className="absolute inset-x-3 bottom-28 z-50 mx-auto max-w-md rounded-xl bg-[#301827] p-3 text-sm text-[#ffd2d2]">{error}<button type="button" className="ml-3 min-h-11 underline" onClick={() => setError('')}>Dismiss</button></p>}
+    {error && <p role="alert" className="game-dock-alert absolute inset-x-3 z-50 mx-auto max-w-md rounded-xl bg-[#301827] p-3 text-sm text-[#ffd2d2]">{error}<button type="button" className="ml-3 min-h-11 underline" onClick={() => setError('')}>Dismiss</button></p>}
   </>
 }
 
