@@ -28,7 +28,7 @@ export function SaveMenu({ open, onClose }: { open: boolean; onClose: () => void
   useEffect(() => {
     if (!open) return
     setLinking(false)
-    setPaused(true)
+    setPaused(true, 'saves')
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -36,7 +36,7 @@ export function SaveMenu({ open, onClose }: { open: boolean; onClose: () => void
     dialogRef.current?.focus()
     return () => {
       window.removeEventListener('keydown', onKey)
-      setPaused(false)
+      setPaused(false, 'saves')
     }
   }, [open, onClose])
 

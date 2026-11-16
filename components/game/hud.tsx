@@ -26,7 +26,7 @@ import {
   Moon,
 } from 'lucide-react'
 import { AGES, TOOLS, TOOL_BY_ID, type Tool } from '@/lib/game/config'
-import { BUILD_COST, cancelTether, costText, setTool, useGame, type BuildingType } from '@/lib/game/store'
+import { BUILD_COST, cancelTether, costText, setTool, useGame, isPaused, type BuildingType } from '@/lib/game/store'
 import { toggleMusic, toggleSfx, unlockAudio, useAudioSettings } from '@/lib/game/audio'
 import { initNativeApp } from '@/lib/game/native'
 import { initMonetization, useMonetization } from '@/lib/game/monetization'
@@ -34,6 +34,7 @@ import { Axe, Crown, Gift, Pickaxe, Music, Music2, Save, Volume2, VolumeX } from
 import { BoostBadge, GiftsMenu, useRewardCooldown } from './gifts-menu'
 import { cn } from '@/lib/utils'
 import { QuestStack } from './quests'
+import { gameModalOpen, ignoreGameShortcut } from '@/lib/game/shortcuts'
 
 const ICONS: Record<Tool, typeof Sun> = {
   hand: Hand,
@@ -72,8 +73,7 @@ export function Hud({ onOpenSaves }: { onOpenSaves: () => void }) {
   }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return
+      if (isPaused() || ignoreGameShortcut(e, gameModalOpen())) return
       const key = e.key.toLowerCase()
       if (key === 'escape') return cancelTether()
       if (key === 'm') return toggleMusic()

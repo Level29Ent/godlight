@@ -1,10 +1,11 @@
 'use client'
 
+import { gameModalOpen, ignoreGameShortcut } from '@/lib/game/shortcuts'
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three'
 import { axisValue, cameraInput, focusCamera, setKeyAxes } from '@/lib/game/camera'
-import { cancelTether, releaseCursor, startDir, state, useGame } from '@/lib/game/store'
+import { cancelTether, isPaused, releaseCursor, startDir, state, useGame } from '@/lib/game/store'
 import { PLANET_RADIUS } from '@/lib/game/planet'
 
 const MIN_DIST = PLANET_RADIUS + 3
@@ -57,12 +58,8 @@ function useKeyboardCamera() {
       })
       setKeyAxes(v)
     }
-    const isTyping = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null
-      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
-    }
     const down = (e: KeyboardEvent) => {
-      if (isTyping(e)) return
+      if (isPaused() || ignoreGameShortcut(e, gameModalOpen())) return
       const k = e.key.toLowerCase()
       if (k === 'f') flipView()
       else if (k === 'r' || k === 'home') recenterView()

@@ -54,7 +54,7 @@ export function GiftsMenu({ open, onClose }: { open: boolean; onClose: () => voi
 
   useEffect(() => {
     if (!open) return
-    setPaused(true)
+    setPaused(true, 'gifts')
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -62,7 +62,7 @@ export function GiftsMenu({ open, onClose }: { open: boolean; onClose: () => voi
     dialogRef.current?.focus()
     return () => {
       window.removeEventListener('keydown', onKey)
-      setPaused(false)
+      setPaused(false, 'gifts')
     }
   }, [open, onClose])
 
