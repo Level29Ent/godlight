@@ -43,6 +43,8 @@ export function restoreLiving(raw: unknown, age: number, time: number): Living {
   const x = raw as Partial<Living>
   l.tutorial = Math.floor(bounded(x.tutorial, 5)); l.tutorialHidden = x.tutorialHidden === true
   l.answered = Math.floor(bounded(x.answered, 1e6)); l.nextPrayer = time + 20
+  // Keep at most one normal cooldown; loading must not bypass it or lock combos forever.
+  l.comboCooldown = time + bounded(typeof x.comboCooldown === 'number' ? x.comboCooldown - time : 0, 30)
   l.sky = Math.floor(bounded(x.sky, Math.min(age, SKIES.length - 1)))
   l.style = Math.floor(bounded(x.style, age >= 2 ? 2 : 0))
   l.rings = x.rings === true && age >= 3; l.moon = x.moon === true && age >= 4
@@ -101,7 +103,7 @@ export function livingMiracle(s: GameState, tool: Tool, dir: Vector3, dt: number
     if (tool === 'sun') {
       const farms = s.buildings.filter(b => b.type === 'farm' && b.progress >= 1 && dist(b.dir, dir) < 1.3)
       if (farms.length) {
-        for (const b of farms) b.growth = Math.min(0.99, b.growth + 0.3)
+        for (const b of farms) b.growth = Math.max(b.growth, Math.min(0.99, b.growth + 0.3))
         l.comboCooldown = s.time + 30; l.combos = [...new Set([...l.combos, 'harvest'])]
         tell('Miracle combination: Sunshower! Nearby farms gain 30% growth. Cooldown: 30s.')
       }
@@ -114,5 +116,6 @@ export function livingMiracle(s: GameState, tool: Tool, dir: Vector3, dt: number
     }
   }
   const same = last && last.tool === tool && s.time - last.time < 0.2 && dist(new Vector3(...last.dir), dir) < 1.3
-  l.cast = { tool, dir: dir.toArray(), seconds: same ? Math.min(10, last.seconds + dt) : dt, time: s.time }
+  // Keep the original channel anchor: comparing only adjacent frames permits planet-wide drift.
+  l.cast = { tool, dir: same ? last.dir : dir.toArray(), seconds: same ? Math.min(10, last.seconds + dt) : dt, time: s.time }
 }

@@ -1516,6 +1516,7 @@ function nearestAlien(dir: Vector3, range: number) {
   let best: Alien | null = null
   let bestD = range
   for (const a of state.aliens) {
+    if (a.hp <= 0) continue
     const d = surfaceDist(a.dir, dir)
     if (d < bestD) {
       bestD = d
@@ -1891,6 +1892,7 @@ function updateUfo(u: Ufo, dt: number) {
 }
 
 function updateAlien(a: Alien, dt: number) {
+  if (a.hp <= 0) return
   a.hurt = Math.max(0, a.hurt - dt)
   a.cooldown -= dt
 

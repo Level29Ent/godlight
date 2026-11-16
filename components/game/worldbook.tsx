@@ -19,7 +19,7 @@ export function Worldbook() {
   return <>
     <button ref={trigger} type="button" className={`${button} absolute bottom-0 right-0 z-20 flex items-center gap-2 bg-[#0c1028]/95`} onClick={() => setOpen(true)}><BookHeart className="size-4" aria-hidden="true" />Worldbook</button>
     <OpeningCard />
-    {open && <WorldbookDialog onClose={() => { setOpen(false); trigger.current?.focus() }} />}
+    {open && <WorldbookDialog onClose={() => { setOpen(false); trigger.current?.focus() }} onPhoto={() => { setOpen(false); setPhotoMode(true) }} />}
   </>
 }
 
@@ -34,7 +34,7 @@ function OpeningCard() {
   </section>
 }
 
-function WorldbookDialog({ onClose }: { onClose: () => void }) {
+function WorldbookDialog({ onClose, onPhoto }: { onClose: () => void; onPhoto: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   useGameVersion()
   useEffect(() => {
@@ -44,17 +44,20 @@ function WorldbookDialog({ onClose }: { onClose: () => void }) {
   }, [])
   const close = () => dialog.current?.close()
   const l = state.living, culture = disposition(state.cosmos.alignment)
+  const visitingColony = state.cosmos.activeColony !== null
   const focus = (id: number, tool?: Tool) => {
     const f = state.followers.find(f => f.id === id)
+    if (visitingColony) return
     if (f) focusCamera(f.dir)
     if (tool) setTool(tool)
     close()
   }
   return <dialog ref={dialog} onClose={onClose} aria-labelledby="worldbook-title" className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%_-_1.5rem)] max-w-2xl overflow-y-auto overscroll-contain rounded-3xl border border-[#f5c451]/30 bg-[#0c1028] p-5 text-[#f4ecd8] shadow-2xl backdrop:bg-[#060817]/85">
     <header className="flex items-center justify-between gap-3"><div><p className="text-[10px] uppercase tracking-[0.3em] text-[#f5c451]">World paused</p><h2 id="worldbook-title" className="font-display text-2xl">Your living world</h2></div><button autoFocus type="button" className={button} onClick={close}>Close</button></header>
+    {visitingColony && <p role="status" className="mt-4 text-sm text-[#ffe2a1]">These requests and followers belong to your home world. Return home from Colony controls to find or help them. Planet styles apply at home; photo mode captures your current view.</p>}
     <section className="mt-5 space-y-2"><h3 className="font-display text-lg text-[#ffe2a1]">Prayers · {l.answered} answered</h3><p className="text-xs leading-5 text-[#f4ecd8]/70">Requests last 90 seconds of play. Answering one grants 6 faith and cheers its follower. Time waits while this book is open.</p>
       {!l.prayers.length && <p className="text-sm">Listen as you play: your people will ask for warmth, work or rain.</p>}
-      {l.prayers.map(p => <div key={p.followerId} className="rounded-xl border border-white/10 p-3 text-sm"><p><strong>{identity(p.followerId).name}</strong>: {PRAYER_TEXT[p.kind]}</p><p className="mt-1 text-xs text-[#f4ecd8]/60">{Math.ceil(Math.max(0, p.expires - state.time))}s left · {Math.min(100, Math.floor(p.progress * 100))}%</p><button type="button" className={`${button} mt-2`} onClick={() => {
+      {l.prayers.map(p => <div key={p.followerId} className="rounded-xl border border-white/10 p-3 text-sm"><p><strong>{identity(p.followerId).name}</strong>: {PRAYER_TEXT[p.kind]}</p><p className="mt-1 text-xs text-[#f4ecd8]/60">{Math.ceil(Math.max(0, p.expires - state.time))}s left · {Math.min(100, Math.floor(p.progress * 100))}%</p><button type="button" className={`${button} mt-2`} disabled={visitingColony} onClick={() => {
         if (p.kind === 'rain') {
           const farm = state.buildings.find(b => b.type === 'farm' && b.progress >= 1)
           if (farm) focusCamera(farm.dir)
@@ -68,11 +71,11 @@ function WorldbookDialog({ onClose }: { onClose: () => void }) {
       <div className="flex flex-wrap gap-2">{SKIES.map((sky, i) => <button type="button" key={sky.name} aria-pressed={l.sky === i} disabled={state.ageIndex < sky.age} className={button} onClick={() => setWorldLook({ sky: i })}>{sky.name}{state.ageIndex < sky.age ? ` · ${AGES[sky.age].name}` : ''}</button>)}</div>
       <div className="flex flex-wrap gap-2">{STYLES.map((name, i) => <button type="button" key={name} aria-pressed={l.style === i} disabled={i > 0 && state.ageIndex < 2} className={button} onClick={() => setWorldLook({ style: i })}>{name}{i > 0 && state.ageIndex < 2 ? ` · ${AGES[2].name}` : ''}</button>)}</div>
       <div className="flex flex-wrap gap-2"><button type="button" className={button} disabled={state.ageIndex < 3} aria-pressed={l.rings} onClick={() => setWorldLook({ rings: !l.rings })}>Planet rings · {AGES[3].name}</button><button type="button" className={button} disabled={state.ageIndex < 4} aria-pressed={l.moon} onClick={() => setWorldLook({ moon: !l.moon })}>Moon · {AGES[4].name}</button></div>
-      <button type="button" className={`${button} flex items-center gap-2`} onClick={() => { close(); onClose(); setPhotoMode(true) }}><Camera className="size-4" aria-hidden="true" />Enter photo mode</button>
+      <button type="button" className={`${button} flex items-center gap-2`} onClick={onPhoto}><Camera className="size-4" aria-hidden="true" />Enter photo mode</button>
     </section>
     <section className="mt-5 space-y-2"><h3 className="font-display text-lg text-[#ffe2a1]">Civilization · {AGES[state.ageIndex].name}</h3><p className="text-sm leading-6">Each age changes robes and homes: stone paths, annexes, solar roofs, luminous halos, then floating crystals. New ages trigger a follower celebration. These visuals do not change building costs.</p><button type="button" className={button} onClick={() => hideOpening(!l.tutorialHidden)}>{l.tutorialHidden ? 'Show' : 'Hide'} guided beginning{l.tutorial >= 5 ? ' · complete' : ''}</button></section>
     <section className="mt-5 space-y-2"><h3 className="font-display text-lg text-[#ffe2a1]">Meet your followers</h3><p className="text-xs leading-5">Devout: +15% prayer faith · Industrious: +15% assigned gathering/attack work · Gentle: sensitive to dread · Bold: stronger prayers under dread. Names and traits stay with a follower across saves.</p>
-      <ul className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">{state.followers.filter(f => !f.lost).slice(0, 160).map(f => <li key={f.id}><button type="button" className={`${button} w-full text-left`} onClick={() => focus(f.id)}>{identity(f.id).name} · {identity(f.id).trait}<br /><span className="text-[#f4ecd8]/60">{Math.round(f.happiness)}% happy · {f.job?.kind ?? f.state} · Find</span></button></li>)}</ul>
+      <ul className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">{state.followers.filter(f => !f.lost).slice(0, 160).map(f => <li key={f.id}><button type="button" className={`${button} w-full text-left`} disabled={visitingColony} onClick={() => focus(f.id)}>{identity(f.id).name} · {identity(f.id).trait}<br /><span className="text-[#f4ecd8]/60">{Math.round(f.happiness)}% happy · {f.job?.kind ?? f.state} · Find</span></button></li>)}</ul>
     </section>
   </dialog>
 }
