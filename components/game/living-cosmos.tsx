@@ -7,6 +7,7 @@ import { state } from '@/lib/game/store'
 import { DESTINATIONS, type Blueprint } from '@/lib/game/cosmos'
 import { isLand, OCEAN_RADIUS, PLANET_RADIUS, surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
+import { AnimalInstances, type AnimalPainter } from './animal-instances'
 
 const NO_RAYCAST = () => null
 
@@ -86,15 +87,14 @@ function Champions() {
 }
 
 function Wildlife() {
-  const bodies = useRef<InstancedMesh>(null)
-  const details = useRef<InstancedMesh>(null)
-  const tmp = useMemo(() => ({ obj: new Object3D(), d: new Vector3(), axis: new Vector3(0, 1, 0), color: new Color() }), [])
+  const painter = useRef<AnimalPainter>(null)
+  const tmp = useMemo(() => ({ obj: new Object3D(), d: new Vector3(), axis: new Vector3(0, 1, 0) }), [])
   const animals = useMemo(() => {
     // Seeded visual distribution; samples are bounded and stay independent of gameplay RNG.
     let seed = 42
     const rand = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 }
     return Array.from({ length: 48 }, (_, i) => {
-      const kind = i < 20 ? 'herd' : i < 34 ? 'bird' : 'fish'
+      const kind: 'herd' | 'bird' | 'fish' = i < 20 ? 'herd' : i < 34 ? 'bird' : 'fish'
       let dir = new Vector3(0, 1, 0)
       for (let j = 0; j < 120; j++) {
         dir.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize()
@@ -103,31 +103,26 @@ function Wildlife() {
       return { kind, dir, phase: rand() * Math.PI * 2 }
     })
   }, [])
-  useFrame(({ clock }) => {
-    if (!bodies.current || !details.current) return
-    const { obj, d, color } = tmp, health = state.cosmos.ecosystem / 100
-    let n = 0
+  useFrame(() => {
+    if (!painter.current) return
+    const { obj, d } = tmp, health = state.cosmos.ecosystem / 100
+    painter.current.begin()
     for (let i = 0; i < animals.length; i++) {
       if ((i % 10) / 10 >= health) continue
-      const a = animals[i], t = clock.elapsedTime * (a.kind === 'bird' ? 0.08 : 0.025) + a.phase
+      const a = animals[i], t = state.time * (a.kind === 'bird' ? 0.08 : 0.025) + a.phase
       d.copy(a.dir).applyAxisAngle(tmp.axis, a.kind === 'bird' ? t : Math.sin(t) * 0.015)
-      if (a.kind === 'fish') obj.position.copy(d).multiplyScalar(OCEAN_RADIUS + 0.04)
-      else surfacePoint(d, obj.position, a.kind === 'bird' ? 1.2 + Math.sin(t * 4) * 0.15 : 0.08)
+      // Keep ambient herds on land and fish at sea as they wander near the coast.
+      if (a.kind !== 'bird' && isLand(d) !== (a.kind === 'herd')) d.copy(a.dir)
+      if (a.kind === 'fish') obj.position.copy(d).multiplyScalar(OCEAN_RADIUS + 0.055)
+      else surfacePoint(d, obj.position, a.kind === 'bird' ? 1.2 + Math.sin(t * 4) * 0.15 : 0.015)
       surfaceQuaternion(d, t, obj.quaternion)
-      obj.scale.set(a.kind === 'herd' ? 0.12 : 0.08, a.kind === 'bird' ? 0.025 : 0.06, a.kind === 'fish' ? 0.18 : 0.2)
-      obj.updateMatrix(); bodies.current.setMatrixAt(n, obj.matrix)
-      color.set(a.kind === 'herd' ? '#c1a17a' : a.kind === 'bird' ? '#e9dfc5' : '#68cfdb'); bodies.current.setColorAt(n, color)
-      obj.position.addScaledVector(d, a.kind === 'herd' ? 0.08 : 0.01)
-      obj.scale.set(a.kind === 'bird' ? 0.25 : 0.06, a.kind === 'bird' ? 0.015 + Math.abs(Math.sin(t * 35)) * 0.05 : 0.07, 0.07)
-      obj.updateMatrix(); details.current.setMatrixAt(n, obj.matrix); details.current.setColorAt(n, color)
-      n++
+      obj.scale.setScalar(a.kind === 'herd' ? 0.8 : a.kind === 'bird' ? 0.8 : 0.9)
+      obj.updateMatrix()
+      painter.current.draw(a.kind === 'herd' ? 'deer' : a.kind, obj.matrix, state.time, a.phase)
     }
-    for (const mesh of [bodies.current, details.current]) { mesh.count = n; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true }
+    painter.current.end()
   })
-  return <group>
-    <instancedMesh ref={bodies} args={[undefined, undefined, 48]} frustumCulled={false} raycast={NO_RAYCAST}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial roughness={1} /></instancedMesh>
-    <instancedMesh ref={details} args={[undefined, undefined, 48]} frustumCulled={false} raycast={NO_RAYCAST}><coneGeometry args={[1, 1, 3]} /><meshStandardMaterial roughness={1} /></instancedMesh>
-  </group>
+  return <AnimalInstances ref={painter} capacity={48} />
 }
 
 function WeatherFront() {
