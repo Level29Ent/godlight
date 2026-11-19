@@ -10,6 +10,7 @@ export interface AnimalPart {
   rotation?: Triple
   motion?: Motion
   side?: number
+  rareOnly?: boolean
 }
 const part = (position: Triple, scale: Triple, color: string, extra: Partial<AnimalPart> = {}): AnimalPart => ({ position, scale, color, ...extra })
 
@@ -17,6 +18,10 @@ const part = (position: Triple, scale: Triple, color: string, extra: Partial<Ani
 // Shared low-poly geometry keeps silhouettes readable without textures or extra draw calls.
 export const ANIMAL_PARTS: Record<AnimalKind, AnimalPart[]> = {
   deer: [
+    ...[-1, 1].flatMap(side => [
+      part([side * 0.045, 0.59, 0.19], [0.012, 0.1, 0.012], '#d8c9ab', { rotation: [0.2, 0, side * -0.3], motion: 'graze', rareOnly: true }),
+      part([side * 0.08, 0.65, 0.21], [0.012, 0.055, 0.012], '#d8c9ab', { rotation: [0.4, 0, side * -0.8], motion: 'graze', rareOnly: true }),
+    ]),
     part([0, 0.25, 0], [0.105, 0.115, 0.21], '#b77b45'),
     part([0, 0.205, 0.025], [0.086, 0.065, 0.16], '#e7c49a'),
     part([0, 0.355, 0.155], [0.064, 0.135, 0.067], '#c68d53', { rotation: [0.35, 0, 0] }),
@@ -66,20 +71,21 @@ export const ANIMAL_PARTS: Record<AnimalKind, AnimalPart[]> = {
 export const MAX_ANIMAL_PARTS = Math.max(...Object.values(ANIMAL_PARTS).map(parts => parts.length))
 
 /** Reuses the caller's scratch object; visual motion never consumes simulation RNG. */
-export function poseAnimalPart(part: AnimalPart, time: number, phase: number, out: Object3D) {
+export function poseAnimalPart(part: AnimalPart, time: number, phase: number, out: Object3D, grazing = 0, flight = 1) {
   out.position.set(...part.position)
   out.scale.set(...part.scale)
   out.rotation.set(part.rotation?.[0] ?? 0, part.rotation?.[1] ?? 0, part.rotation?.[2] ?? 0)
   const cycle = time * 5 + phase
   if (part.motion === 'leg') {
-    const stride = Math.sin(cycle) * (part.side ?? 1)
+    const stride = Math.sin(cycle) * (part.side ?? 1) * (1 - grazing)
     out.rotation.x += stride * 0.2
     out.position.z += stride * 0.022
     out.position.y += Math.max(0, stride) * 0.012
   } else if (part.motion === 'wing') {
     // Both wings lift together, hinging at the shoulders rather than rolling the bird.
-    const flap = Math.sin(time * 7 + phase) * 0.65
-    const reach = Math.abs(part.position[0]) - 0.035
+    const flap = Math.sin(time * 7 + phase) * 0.65 * flight
+    const reach = (Math.abs(part.position[0]) - 0.035) * (0.25 + flight * 0.75)
+    out.scale.x *= 0.3 + flight * 0.7
     out.position.x = (part.side ?? 1) * (0.035 + reach * Math.cos(flap))
     out.position.y += reach * Math.sin(flap)
     out.rotation.z = (part.side ?? 1) * flap
@@ -89,6 +95,13 @@ export function poseAnimalPart(part: AnimalPart, time: number, phase: number, ou
   } else if (part.motion === 'graze') {
     out.rotation.x += Math.sin(time * 0.8 + phase) * 0.06
     out.position.y += Math.sin(time * 0.8 + phase) * 0.009
+  }
+  if (part.motion === 'graze' && grazing) {
+    // Rotate the whole head assembly about the base of the neck.
+    const angle = grazing * 1.05, y = out.position.y - 0.35, z = out.position.z - 0.15
+    out.position.y = 0.35 + y * Math.cos(angle) - z * Math.sin(angle)
+    out.position.z = 0.15 + y * Math.sin(angle) + z * Math.cos(angle)
+    out.rotation.x += angle
   }
   out.updateMatrix()
   return out.matrix

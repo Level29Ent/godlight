@@ -5,9 +5,8 @@ import { useFrame } from '@react-three/fiber'
 import { Color, DoubleSide, Group, InstancedMesh, Mesh, MeshBasicMaterial, Object3D, Vector3 } from 'three'
 import { state } from '@/lib/game/store'
 import { DESTINATIONS, type Blueprint } from '@/lib/game/cosmos'
-import { isLand, OCEAN_RADIUS, PLANET_RADIUS, surfacePoint } from '@/lib/game/planet'
+import { PLANET_RADIUS, surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
-import { AnimalInstances, type AnimalPainter } from './animal-instances'
 
 const NO_RAYCAST = () => null
 
@@ -15,7 +14,6 @@ export function LivingCosmos() {
   return <>
     {(['bunker', 'pyramid', 'obelisk', 'colosseum'] as const).map(kind => <Wonder key={kind} kind={kind} />)}
     <Champions />
-    <Wildlife />
     <WeatherFront />
     <SkyThreats />
     <RelicMarkers />
@@ -84,45 +82,6 @@ function Champions() {
     <mesh position={[0, 0.67, 0]} rotation={[Math.PI / 2, 0, 0]} raycast={NO_RAYCAST}><torusGeometry args={[0.13, 0.02, 4, 20]} /><meshBasicMaterial color={i === 0 ? '#ffe390' : '#92d7ff'} /></mesh>
     <mesh position={[0.15, 0.3, 0]} raycast={NO_RAYCAST}><cylinderGeometry args={[0.015, 0.015, 0.55, 5]} /><meshStandardMaterial color="#947550" /></mesh>
   </group>)}</group>
-}
-
-function Wildlife() {
-  const painter = useRef<AnimalPainter>(null)
-  const tmp = useMemo(() => ({ obj: new Object3D(), d: new Vector3(), axis: new Vector3(0, 1, 0) }), [])
-  const animals = useMemo(() => {
-    // Seeded visual distribution; samples are bounded and stay independent of gameplay RNG.
-    let seed = 42
-    const rand = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 }
-    return Array.from({ length: 48 }, (_, i) => {
-      const kind: 'herd' | 'bird' | 'fish' = i < 20 ? 'herd' : i < 34 ? 'bird' : 'fish'
-      let dir = new Vector3(0, 1, 0)
-      for (let j = 0; j < 120; j++) {
-        dir.set(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1).normalize()
-        if (kind === 'bird' || isLand(dir) === (kind === 'herd')) break
-      }
-      return { kind, dir, phase: rand() * Math.PI * 2 }
-    })
-  }, [])
-  useFrame(() => {
-    if (!painter.current) return
-    const { obj, d } = tmp, health = state.cosmos.ecosystem / 100
-    painter.current.begin()
-    for (let i = 0; i < animals.length; i++) {
-      if ((i % 10) / 10 >= health) continue
-      const a = animals[i], t = state.time * (a.kind === 'bird' ? 0.08 : 0.025) + a.phase
-      d.copy(a.dir).applyAxisAngle(tmp.axis, a.kind === 'bird' ? t : Math.sin(t) * 0.015)
-      // Keep ambient herds on land and fish at sea as they wander near the coast.
-      if (a.kind !== 'bird' && isLand(d) !== (a.kind === 'herd')) d.copy(a.dir)
-      if (a.kind === 'fish') obj.position.copy(d).multiplyScalar(OCEAN_RADIUS + 0.055)
-      else surfacePoint(d, obj.position, a.kind === 'bird' ? 1.2 + Math.sin(t * 4) * 0.15 : 0.015)
-      surfaceQuaternion(d, t, obj.quaternion)
-      obj.scale.setScalar(a.kind === 'herd' ? 0.8 : a.kind === 'bird' ? 0.8 : 0.9)
-      obj.updateMatrix()
-      painter.current.draw(a.kind === 'herd' ? 'deer' : a.kind, obj.matrix, state.time, a.phase)
-    }
-    painter.current.end()
-  })
-  return <AnimalInstances ref={painter} capacity={48} />
 }
 
 function WeatherFront() {

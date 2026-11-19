@@ -1,7 +1,8 @@
 import { BUILD_COST, type Building, type Follower, type GameState } from './store'
+import { animalName, wildlifeCatalog } from './wildlife-life'
 import { identity } from './living'
 
-export type Inspection = { kind: 'follower' | 'building'; id: number } | null
+export type Inspection = { kind: 'follower' | 'building' | 'animal'; id: number } | null
 export interface CareIssue {
   key: string; title: string; advice: string; count: number
   target: { kind: 'follower' | 'building' | 'colony'; id: number }
@@ -39,6 +40,10 @@ export function worldIssues(s: GameState): CareIssue[] {
 export function followerMemories(s: GameState, id: number) { return s.chronicle.entries.filter(e => e.followerId === id).slice(-3).reverse() }
 export function inspectionTitle(s: GameState, selection: Inspection) {
   if (!selection) return null
+  if (selection.kind === 'animal') {
+    const animal = wildlifeCatalog(s).find(a => a.id === selection.id)
+    return animal ? animalName(animal) : null
+  }
   if (selection.kind === 'follower') return s.followers.some(f => f.id === selection.id) ? identity(selection.id).name : null
   return s.buildings.find(b => b.id === selection.id)?.type ?? null
 }
