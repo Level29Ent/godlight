@@ -399,6 +399,21 @@ export function sfx(name: SfxName) {
   }
 }
 
+/** Short, distance-attenuated nature cues. No timers, haptics or audio before user unlock. */
+export function wildlifeSound(kind: 'bird' | 'splash' | 'rustle', proximity: number) {
+  if (!ctx || ctx.state !== 'running' || !settings.sfx || document.hidden) return
+  const level = Math.max(0, Math.min(1, proximity))
+  if (level <= 0) return
+  if (kind === 'bird') {
+    tone({ freq: 1800, to: 2800, dur: 0.1, gain: 0.025 * level })
+    tone({ freq: 2400, to: 1700, start: 0.14, dur: 0.14, gain: 0.02 * level })
+  } else if (kind === 'splash') {
+    noise({ type: 'bandpass', freq: 1200, to: 400, attack: 0.02, dur: 0.3, gain: 0.035 * level })
+  } else {
+    noise({ type: 'highpass', freq: 2200, attack: 0.08, dur: 0.35, gain: 0.018 * level })
+  }
+}
+
 // ---------- continuous loops (sun / rain) ----------
 
 interface Loop {

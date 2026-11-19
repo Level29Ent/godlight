@@ -2,40 +2,71 @@
 
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Object3D, Quaternion, Vector3 } from 'three'
-import { state } from '@/lib/game/store'
-import { wildlifeHabitat } from '@/lib/game/wildlife'
-import { isLand, surfacePoint } from '@/lib/game/planet'
+import { Color, InstancedMesh, Object3D, Vector3 } from 'three'
+import { isPaused, state } from '@/lib/game/store'
+import { PLANET_RADIUS, surfacePoint } from '@/lib/game/planet'
 import { surfaceQuaternion } from '@/lib/game/orient'
+import { wildlifeSound } from '@/lib/game/audio'
+import { animalPose, createAnimalPose, wildlifeCatalog, wildlifeSites, wildlifeSoundLevel, type HabitatSite, type WildAnimal } from '@/lib/game/wildlife-life'
 import { AnimalInstances, type AnimalPainter } from './animal-instances'
 
-// At most 18 procedural animals. Positions use simulation time, so pauses freeze movement.
+// Bounded catalog: 48 ambient animals, 18 habitat residents and two rare visitors.
 export function WildlifeScene() {
-  const animals = useRef<AnimalPainter>(null)
-  const tmp = useMemo(() => ({ obj: new Object3D(), dir: new Vector3(), tangent: new Vector3(), q: new Quaternion() }), [])
-  useFrame(() => {
-    const h = wildlifeHabitat(state), n = h.forest.length ? Math.floor(state.wildlife.deer) : 0, m = h.water.length ? Math.floor(state.wildlife.birds) : 0
-    if (!animals.current) return
-    const { obj, dir, tangent, q } = tmp
-    animals.current.begin()
-    for (let i = 0; i < n; i++) {
-      const home = h.forest[i % h.forest.length].dir, t = state.time * 0.35 + i * 2.399
-      tangent.set(Math.sin(t), Math.cos(t * 0.7), Math.cos(t)).addScaledVector(home, -home.dot(tangent)).normalize()
-      dir.copy(home).addScaledVector(tangent, 0.035).normalize()
-      if (!isLand(dir)) dir.copy(home)
-      surfacePoint(dir, obj.position, 0.015)
-      obj.quaternion.copy(surfaceQuaternion(dir, t, q)); obj.scale.setScalar(1); obj.updateMatrix()
-      animals.current.draw('deer', obj.matrix, state.time, i * 2.399)
+  const painter = useRef<AnimalPainter>(null)
+  const catalog = useRef<WildAnimal[]>([])
+  const lastRefresh = useRef(-Infinity), lastSound = useRef(-Infinity)
+  const pose = useMemo(createAnimalPose, [])
+  useFrame(({ camera }) => {
+    if (!painter.current) return
+    if (state.time < lastRefresh.current || state.time - lastRefresh.current >= 0.5) {
+      catalog.current = wildlifeCatalog(state); lastRefresh.current = state.time
     }
-    for (let i = 0; i < m; i++) {
-      const home = h.water[i % h.water.length].dir, t = state.time * 0.6 + i * 2.399
-      tangent.set(Math.sin(t), 0.4, Math.cos(t)).addScaledVector(home, -home.dot(tangent)).normalize()
-      dir.copy(home).addScaledVector(tangent, 0.07).normalize()
-      surfacePoint(dir, obj.position, 0.7 + (i % 3) * 0.12)
-      obj.quaternion.copy(surfaceQuaternion(dir, t, q)); obj.scale.setScalar(0.85); obj.updateMatrix()
-      animals.current.draw('bird', obj.matrix, state.time, i * 2.399)
+    painter.current.begin()
+    let loudest = 0, sound: 'bird' | 'splash' | 'rustle' = 'bird'
+    for (const animal of catalog.current) {
+      animalPose(animal, state.time, pose)
+      painter.current.draw(animal.kind, pose.matrix, state.time, animal.phase, animal.id, pose.grazing, animal.rare, pose.flight)
+      const level = wildlifeSoundLevel(camera.position, pose.root.position)
+      if (level > loudest) { loudest = level; sound = animal.kind === 'bird' ? 'bird' : animal.kind === 'fish' ? 'splash' : 'rustle' }
     }
-    animals.current.end()
+    painter.current.end()
+    if (state.time < lastSound.current) lastSound.current = -Infinity
+    if (state.started && !state.gameOver && !isPaused() && !document.hidden && state.time - lastSound.current > 4) {
+      if (loudest > 0.02) wildlifeSound(sound, loudest)
+      lastSound.current = state.time
+    }
   })
-  return <AnimalInstances ref={animals} capacity={18} />
+  return <><AnimalInstances ref={painter} capacity={68} /><HabitatPlants /></>
+}
+
+function HabitatPlants() {
+  const mesh = useRef<InstancedMesh>(null), last = useRef(-Infinity)
+  const sites = useRef<HabitatSite[]>([])
+  const scratch = useMemo(() => ({ root: new Object3D(), local: new Object3D(), dir: new Vector3(), color: new Color() }), [])
+  useFrame(() => {
+    if (!mesh.current || state.time >= last.current && state.time - last.current < 0.5) return
+    last.current = state.time; sites.current = wildlifeSites(state)
+    let count = 0
+    const { root, local, dir, color } = scratch
+    for (const site of sites.current) {
+      if (site.kind === 'coast') continue
+      surfaceQuaternion(site.dir, 0, root.quaternion)
+      for (let i = 0; i < 12; i++) {
+        const a = i * 2.399, r = 0.08 + Math.sqrt(i / 12) * 0.42
+        local.position.set(Math.cos(a) * r, 0, Math.sin(a) * r).applyQuaternion(root.quaternion)
+        dir.copy(site.dir).multiplyScalar(PLANET_RADIUS).add(local.position).normalize()
+        surfacePoint(dir, local.position, site.kind === 'wetland' ? 0.12 : 0.04)
+        surfaceQuaternion(dir, a, local.quaternion)
+        local.scale.set(site.kind === 'meadow' ? 0.045 : 0.025, site.kind === 'wetland' ? 0.18 : site.kind === 'forest' ? 0.09 : 0.035, 0.025)
+        local.updateMatrix(); mesh.current.setMatrixAt(count, local.matrix)
+        color.set(site.kind === 'meadow' ? ['#f2d580', '#cdb6e9', '#f5e8d2'][i % 3] : site.kind === 'wetland' ? '#718d48' : '#41845a')
+        mesh.current.setColorAt(count++, color)
+      }
+    }
+    mesh.current.count = count; mesh.current.instanceMatrix.needsUpdate = true
+    if (mesh.current.instanceColor) mesh.current.instanceColor.needsUpdate = true
+  })
+  return <instancedMesh ref={mesh} args={[undefined, undefined, 216]} frustumCulled={false} raycast={() => null}>
+    <icosahedronGeometry args={[1, 0]} /><meshStandardMaterial roughness={1} flatShading />
+  </instancedMesh>
 }
